@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="IrrigBucket — Get the perfect bucket test setup for any irrigation system. Built for NZ dairy farmers.">
+  <title>IrrigBucket — Irrigation Bucket Test Calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <div class="app-logo" id="logo-home" style="cursor:pointer;">
+      <div class="app-logo-icon">💧</div>
+      <span class="app-logo-text">IrrigBucket</span>
+    </div>
+    <button class="back-btn" id="back-btn" style="display:none;" onclick="goBack()">
+      ← Back
+    </button>
+  </header>
+
+  <!-- ============ PROGRESS BAR ============ -->
+  <div class="progress-bar" id="progress-bar" style="display:none;">
+    <div class="progress-step">
+      <div class="progress-dot" id="prog-1">1</div>
+    </div>
+    <div class="progress-line" id="prog-line-1"></div>
+    <div class="progress-step">
+      <div class="progress-dot" id="prog-2">2</div>
+    </div>
+    <div class="progress-line" id="prog-line-2"></div>
+    <div class="progress-step">
+      <div class="progress-dot" id="prog-3">3</div>
+    </div>
+    <div class="progress-line" id="prog-line-3"></div>
+    <div class="progress-step">
+      <div class="progress-dot" id="prog-4">4</div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 1: HOME ============ -->
+  <section class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="hero-icon">🪣</div>
+      <h1>Perfect Bucket Tests,<br>Every Time</h1>
+      <p>Enter your irrigation system details and get the exact setup — bucket count, spacing, and placement — tailored to your irrigator.</p>
+    </div>
+
+    <h3 class="mb-16 text-center">Select Your Irrigator Type</h3>
+
+    <div class="type-grid" id="type-grid">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="mt-24 text-center">
+      <p class="text-sm text-muted">Built for NZ dairy farmers • DairyNZ compliant</p>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN 2: SYSTEM DETAILS ============ -->
+  <section class="screen" id="screen-details">
+    <div class="card mb-20">
+      <div class="flex items-center gap-12 mb-16">
+        <span id="detail-icon" style="font-size:1.8rem;"></span>
+        <div>
+          <h2 id="detail-title"></h2>
+          <p class="text-sm" id="detail-subtitle"></p>
+        </div>
+      </div>
+
+      <form id="system-form" onsubmit="return false;">
+        <!-- Common inputs -->
+        <div class="form-section">
+          <div class="form-section-title">System Specifications</div>
+          <div id="form-fields">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Bucket info -->
+        <div class="form-section">
+          <div class="form-section-title">Your Buckets</div>
+          <div class="form-group">
+            <label class="form-label">Bucket Top Diameter <span class="unit">(mm)</span></label>
+            <input type="number" class="form-input" id="bucket-diameter" placeholder="e.g. 250" value="250" min="50" max="500">
+            <span class="form-hint">Measure the inside top diameter of your bucket</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Target Application Depth <span class="unit">(mm)</span></label>
+            <input type="number" class="form-input" id="target-depth" placeholder="e.g. 15" value="15" min="1" max="100" step="0.5">
+            <span class="form-hint">How much water should be applied per pass</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block btn-lg" onclick="calculateSetup()">
+          <span class="btn-icon">📐</span> Calculate Bucket Test Setup
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN 3: BUCKET TEST PLAN ============ -->
+  <section class="screen" id="screen-plan">
+    <div class="card mb-16">
+      <h2 class="mb-4">Your Bucket Test Plan</h2>
+      <p class="text-sm mb-16" id="plan-type-label"></p>
+
+      <div id="plan-stats">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Placement Diagram -->
+    <div class="diagram-container">
+      <h4 class="mb-8">Bucket Placement Diagram</h4>
+      <canvas id="placement-canvas" width="560" height="320"></canvas>
+      <p class="diagram-label" id="diagram-caption"></p>
+    </div>
+
+    <!-- Pre-test Checklist -->
+    <div class="card mb-16">
+      <h4 class="mb-12">Pre-Test Checklist</h4>
+      <ul class="checklist" id="checklist">
+        <!-- Populated by JS -->
+      </ul>
+    </div>
+
+    <button class="btn btn-primary btn-block btn-lg" onclick="showDataEntry()">
+      <span class="btn-icon">✅</span> I've Completed the Test
+    </button>
+    <button class="btn btn-secondary btn-block mt-16" onclick="printPlan()">
+      <span class="btn-icon">🖨️</span> Print This Plan
+    </button>
+  </section>
+
+  <!-- ============ SCREEN 4: DATA ENTRY ============ -->
+  <section class="screen" id="screen-data">
+    <div class="card mb-16">
+      <h2 class="mb-4">Enter Bucket Volumes</h2>
+      <p class="text-sm mb-16">Measure the water in each bucket (mL) and enter below. Number them left to right as you placed them.</p>
+
+      <div class="form-row mb-16">
+        <div class="form-group">
+          <label class="form-label">Test Date</label>
+          <input type="date" class="form-input" id="test-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Wind Speed <span class="unit">(km/h)</span></label>
+          <input type="number" class="form-input" id="wind-speed" placeholder="e.g. 10" min="0" max="100">
+        </div>
+      </div>
+
+      <div class="volume-grid" id="volume-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block btn-lg" onclick="calculateResults()">
+      <span class="btn-icon">📊</span> Calculate Results
+    </button>
+  </section>
+
+  <!-- ============ SCREEN 5: RESULTS ============ -->
+  <section class="screen" id="screen-results">
+    <div class="card mb-16">
+      <h2 class="mb-4">Test Results</h2>
+      <p class="text-sm mb-16" id="results-summary"></p>
+
+      <div class="results-grid" id="results-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Volume Bar Chart -->
+    <div class="card mb-16">
+      <h4 class="mb-8">Water Distribution Profile</h4>
+      <p class="text-sm mb-12">Each bar represents one bucket. Orange bars are the lowest 25%.</p>
+      <div class="bar-chart" id="bar-chart">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="card mb-16">
+      <h4 class="mb-12">Recommendations</h4>
+      <div id="recommendations">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block btn-lg" onclick="printResults()">
+      <span class="btn-icon">📄</span> Export Report
+    </button>
+    <button class="btn btn-secondary btn-block mt-16" onclick="startOver()">
+      <span class="btn-icon">🔄</span> Start New Test
+    </button>
+  </section>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>

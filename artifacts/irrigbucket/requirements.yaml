@@ -1,0 +1,22 @@
+packages:
+  "zustand": "Client-side state management for wizard data across steps"
+  "recharts": "Bar chart visualization for bucket test results"
+  "framer-motion": "Smooth transitions and micro-interactions for wizard steps"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge tailwind classes safely"
+  "@hookform/resolvers": "Zod resolver for system details form validation"
+  "react-hook-form": "Form state management for complex system details"
+  "zod": "Schema validation for forms"
+
+images:
+  - path: "artifacts/irrigbucket/public/images/topo-bg.png"
+    description: "Subtle, very light grey topographic map lines pattern on a white background, highly transparent, used as a subtle agricultural texture"
+    aspect_ratio: "16:9"
+  - path: "artifacts/irrigbucket/public/images/dairy-badge.png"
+    description: "A professional circular badge that says 'DairyNZ Compliant Test Method' in green and white, clean vector style"
+    aspect_ratio: "1:1"
+
+notes:
+  - This is a frontend-only application using local state (Zustand) to persist data between wizard steps.
+  - No backend API is assumed or required.
+  - Routing is handled via Wouter to allow logical progression and browser history support for the wizard.
