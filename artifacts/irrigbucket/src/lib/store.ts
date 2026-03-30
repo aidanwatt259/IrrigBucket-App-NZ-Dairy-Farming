@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { calculatePlan, SystemParams, Plan } from './calculations';
+import { calculatePlan, SystemParams, Plan, SectionDefinition } from './calculations';
 
 interface AppState {
   irrigatorType: string | null;
@@ -8,6 +8,7 @@ interface AppState {
   volumes: number[];
   windSpeed: number;
   testDate: string;
+  sections: SectionDefinition[];
   
   setIrrigatorType: (type: string) => void;
   setSystemParams: (params: Partial<SystemParams>) => void;
@@ -15,6 +16,7 @@ interface AppState {
   setVolume: (index: number, volume: number) => void;
   setVolumesArray: (volumes: number[]) => void;
   setTestConditions: (date: string, wind: number) => void;
+  setSections: (sections: SectionDefinition[]) => void;
   reset: () => void;
 }
 
@@ -30,6 +32,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   volumes: [],
   windSpeed: 0,
   testDate: new Date().toISOString().split('T')[0],
+  sections: [],
 
   setIrrigatorType: (type) => set({ irrigatorType: type }),
   
@@ -43,7 +46,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const plan = calculatePlan(irrigatorType, systemParams);
     set({ 
       plan, 
-      volumes: Array(plan.bucketCount).fill(0) 
+      volumes: Array(plan.bucketCount).fill(0),
+      sections: [],
     });
   },
   
@@ -57,11 +61,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   setTestConditions: (date, wind) => set({ testDate: date, windSpeed: wind }),
 
+  setSections: (sections) => set({ sections }),
+
   reset: () => set({
     irrigatorType: null,
     systemParams: { ...defaultParams },
     plan: null,
     volumes: [],
-    windSpeed: 0
+    windSpeed: 0,
+    sections: [],
   }),
 }));
