@@ -95,7 +95,7 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucket tests.
 
-**Technology**: React 18, Vite 7, TypeScript, Tailwind CSS, shadcn/ui, Zustand (state), Zod + react-hook-form (forms), Recharts (bar chart), framer-motion (animations), Wouter (routing)
+**Technology**: React 18, Vite 7, TypeScript, Tailwind CSS, shadcn/ui, Zustand (state, persisted to localStorage), Zod + react-hook-form (forms), Recharts (bar chart), framer-motion (animations), Wouter (routing), vite-plugin-pwa (offline/installable PWA)
 
 **Routes / Pages:**
 - `/` — Home: irrigator type selector (6 types)
@@ -105,10 +105,17 @@ Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucke
 - `/data` — DataEntry: enter bucket volumes (grouped by section for pivot)
 - `/results` — Results: DU calculation, section breakdown, charts, logged data
 
+**Offline / PWA:**
+- `vite-plugin-pwa` generates a service worker that pre-caches all app assets at first load (active in production builds only; dev mode uses in-memory). Once cached, the full app runs without any internet connection.
+- Zustand store uses `persist` middleware (key `irrigbucket-draft`) so every field the farmer fills in is automatically saved to localStorage. Data survives browser refreshes and app restarts.
+- `OfflineIndicator` shows an amber banner when offline ("your data is saved on this device") and a green banner for 3 s when reconnecting.
+- PWA manifest + apple-touch-icon allow "Add to Home Screen" install on iOS and Android.
+
 **Key files:**
 - `src/lib/calculations.ts` — All calculation logic: `calculatePlan()`, `calculateTestResults()`, `sectionsFromPivot()`, DU formula (1−CV)
-- `src/lib/store.ts` — Zustand store: irrigatorType, systemParams, plan, volumes, sections, pivotSections, operationData
+- `src/lib/store.ts` — Zustand store with persist middleware: irrigatorType, systemParams, plan, volumes, sections, pivotSections, operationData
 - `src/components/layout/AppLayout.tsx` — Shared layout with progress bar (accepts step + totalSteps)
+- `src/components/ui/OfflineIndicator.tsx` — Animated online/offline status banner
 
 **Centre Pivot flow (6 steps, /setup → /plan → /operation → /data → /results):**
 - Auto-calculates 3 sections from pivot length: Section A (inner ¼, excluded), Section B (mid ½, ~21m spacing), Section C (outer ¼, ~11m spacing), End Gun (3 buckets at 5m if present)

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   calculatePlan, SystemParams, Plan,
   SectionDefinition, PivotSection,
@@ -31,75 +32,91 @@ interface AppState {
 
 const defaultParams: SystemParams = { diameter: 250, targetDepth: 15 };
 
-export const useAppStore = create<AppState>((set, get) => ({
-  irrigatorType: null,
+const defaultState = {
+  irrigatorType: null as string | null,
   systemParams: { ...defaultParams },
-  plan: null,
-  volumes: [],
+  plan: null as Plan | null,
+  volumes: [] as number[],
   windSpeed: 0,
   testDate: new Date().toISOString().split('T')[0],
-  sections: [],
-  pivotSections: [],
-  operationData: {},
+  sections: [] as SectionDefinition[],
+  pivotSections: [] as PivotSection[],
+  operationData: {} as OperationData,
+};
 
-  setIrrigatorType: (type) => set({ irrigatorType: type }),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      ...defaultState,
 
-  setSystemParams: (params) => set((state) => ({
-    systemParams: { ...state.systemParams, ...params },
-  })),
+      setIrrigatorType: (type) => set({ irrigatorType: type }),
 
-  generatePlan: () => {
-    const { irrigatorType, systemParams } = get();
-    if (!irrigatorType) return;
-    const plan = calculatePlan(irrigatorType, systemParams);
-    const pivotSections = plan.pivotSections ?? [];
-    set({
-      plan,
-      volumes: Array(plan.bucketCount).fill(0),
-      sections: [],
-      pivotSections,
-    });
-  },
+      setSystemParams: (params) => set((state) => ({
+        systemParams: { ...state.systemParams, ...params },
+      })),
 
-  setVolume: (index, volume) => set((state) => {
-    const v = [...state.volumes];
-    v[index] = volume;
-    return { volumes: v };
-  }),
+      generatePlan: () => {
+        const { irrigatorType, systemParams } = get();
+        if (!irrigatorType) return;
+        const plan = calculatePlan(irrigatorType, systemParams);
+        const pivotSections = plan.pivotSections ?? [];
+        set({
+          plan,
+          volumes: Array(plan.bucketCount).fill(0),
+          sections: [],
+          pivotSections,
+        });
+      },
 
-  setVolumesArray: (volumes) => set({ volumes }),
+      setVolume: (index, volume) => set((state) => {
+        const v = [...state.volumes];
+        v[index] = volume;
+        return { volumes: v };
+      }),
 
-  setTestConditions: (date, wind) => set({ testDate: date, windSpeed: wind }),
+      setVolumesArray: (volumes) => set({ volumes }),
 
-  setSections: (sections) => set({ sections }),
+      setTestConditions: (date, wind) => set({ testDate: date, windSpeed: wind }),
 
-  setPivotSections: (pivotSections) => set({ pivotSections }),
+      setSections: (sections) => set({ sections }),
 
-  setOperationData: (data) => set((state) => ({
-    operationData: { ...state.operationData, ...data },
-  })),
+      setPivotSections: (pivotSections) => set({ pivotSections }),
 
-  commitPivotSetup: (pivotSections) => {
-    const total = pivotSections
-      .filter(s => !s.isExcluded)
-      .reduce((sum, s) => sum + s.buckets, 0);
-    const sections = sectionsFromPivot(pivotSections);
-    set({
-      pivotSections,
-      sections,
-      volumes: Array(total).fill(0),
-      plan: { ...get().plan!, bucketCount: total, pivotSections },
-    });
-  },
+      setOperationData: (data) => set((state) => ({
+        operationData: { ...state.operationData, ...data },
+      })),
 
-  reset: () => set({
-    irrigatorType: null,
-    systemParams: { ...defaultParams },
-    plan: null,
-    volumes: [],
-    windSpeed: 0,
-    sections: [],
-    pivotSections: [],
-    operationData: {},
-  }),
-}));
+      commitPivotSetup: (pivotSections) => {
+        const total = pivotSections
+          .filter(s => !s.isExcluded)
+          .reduce((sum, s) => sum + s.buckets, 0);
+        const sections = sectionsFromPivot(pivotSections);
+        set({
+          pivotSections,
+          sections,
+          volumes: Array(total).fill(0),
+          plan: { ...get().plan!, bucketCount: total, pivotSections },
+        });
+      },
+
+      reset: () => set({
+        ...defaultState,
+        testDate: new Date().toISOString().split('T')[0],
+      }),
+    }),
+    {
+      name: 'irrigbucket-draft',
+      partialize: (state) => ({
+        irrigatorType: state.irrigatorType,
+        systemParams: state.systemParams,
+        plan: state.plan,
+        volumes: state.volumes,
+        windSpeed: state.windSpeed,
+        testDate: state.testDate,
+        sections: state.sections,
+        pivotSections: state.pivotSections,
+        operationData: state.operationData,
+      }),
+    },
+  ),
+);
