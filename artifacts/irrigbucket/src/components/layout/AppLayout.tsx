@@ -1,7 +1,8 @@
-import React from 'react';
-import { Droplet, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { Droplet, ArrowLeft, Menu } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Progress } from '@/components/ui/progress';
+import { SideMenu } from './SideMenu';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, step, totalSteps = 5, title, showBack = true }: AppLayoutProps) {
   const [, setLocation] = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const progressValue = (step / totalSteps) * 100;
 
   return (
@@ -20,17 +22,24 @@ export function AppLayout({ children, step, totalSteps = 5, title, showBack = tr
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-border/50 shadow-sm">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="p-2 -ml-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Open menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
               {showBack && (
                 <button
                   onClick={() => window.history.back()}
-                  className="p-2 -ml-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Go back"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
               )}
-              <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
+              <div className="flex items-center gap-2 cursor-pointer ml-1" onClick={() => setLocation('/')}>
                 <div className="bg-primary/10 p-2 rounded-xl text-primary">
                   <Droplet className="w-5 h-5 fill-primary" />
                 </div>
@@ -50,6 +59,8 @@ export function AppLayout({ children, step, totalSteps = 5, title, showBack = tr
           </div>
         </div>
       </header>
+
+      <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="flex-1 w-full max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 pt-6 sm:pt-10 pb-20">
         <div className="mb-6 sm:mb-8">

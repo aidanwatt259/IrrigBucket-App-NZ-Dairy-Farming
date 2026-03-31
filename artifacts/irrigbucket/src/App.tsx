@@ -10,6 +10,7 @@ import TestPlan from "@/pages/TestPlan";
 import Operation from "@/pages/Operation";
 import DataEntry from "@/pages/DataEntry";
 import Results from "@/pages/Results";
+import SavedReport from "@/pages/SavedReport";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/operation" component={Operation} />
       <Route path="/data" component={DataEntry} />
       <Route path="/results" component={Results} />
+      <Route path="/reports/:id" component={SavedReport} />
       <Route component={NotFound} />
     </Switch>
   );

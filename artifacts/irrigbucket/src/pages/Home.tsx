@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { 
@@ -7,9 +8,11 @@ import {
   Grip, 
   Target, 
   Grid2X2,
+  Menu,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Card } from '@/components/ui/card';
+import { SideMenu } from '@/components/layout/SideMenu';
 
 function RotoRainerIcon({ className }: { className?: string }) {
   return (
@@ -70,6 +73,7 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const setIrrigatorType = useAppStore(state => state.setIrrigatorType);
   const currentType = useAppStore(state => state.irrigatorType);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSelect = (id: string) => {
     setIrrigatorType(id);
@@ -78,6 +82,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <button
+        onClick={() => setMenuOpen(true)}
+        className="fixed top-4 left-4 z-50 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-border/50 text-muted-foreground hover:text-foreground hover:bg-white transition-colors"
+        aria-label="Open menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+      <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
       {/* Hero Section */}
       <div className="relative pt-20 pb-16 sm:pt-32 sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
         <motion.div 

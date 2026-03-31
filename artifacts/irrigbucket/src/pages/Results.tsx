@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Printer, RotateCcw, AlertTriangle, CheckCircle, Info, Wind } from 'lucide-react';
@@ -8,6 +8,7 @@ import { calculateTestResults, populationStdDev } from '@/lib/calculations';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { saveReport } from '@/lib/savedReports';
 
 // Section colour palette for the bar chart
 const SECTION_BAR_COLORS: Record<string, string> = {
@@ -47,6 +48,7 @@ export default function Results() {
     volumes, systemParams, plan, windSpeed, testDate,
     sections, irrigatorType, operationData, reset,
   } = useAppStore();
+  const savedRef = useRef(false);
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -56,6 +58,13 @@ export default function Results() {
     calculateTestResults(volumes, systemParams.diameter, systemParams.targetDepth, sections),
     [volumes, systemParams.diameter, systemParams.targetDepth, sections]
   );
+
+  useEffect(() => {
+    if (plan && results && volumes.some(v => v > 0) && !savedRef.current) {
+      savedRef.current = true;
+      saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
+    }
+  }, [plan, results]);
 
   if (!plan || !results) return null;
 
