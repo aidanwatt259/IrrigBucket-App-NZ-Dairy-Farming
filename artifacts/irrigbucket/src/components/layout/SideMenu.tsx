@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { FileText, Trash2, ChevronRight, ClipboardList } from 'lucide-react';
+import { FileText, Trash2, ChevronRight, ClipboardList, LogIn, LogOut, User } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
   getSavedReports, deleteReport, getReportLabel, getReportSubLabel, SavedReport,
 } from '@/lib/savedReports';
+import { useAuth } from '@workspace/replit-auth-web';
 
 interface SideMenuProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface SideMenuProps {
 export function SideMenu({ open, onClose }: SideMenuProps) {
   const [, setLocation] = useLocation();
   const [reports, setReports] = useState<SavedReport[]>([]);
+  const { user, isLoading, isAuthenticated, login, logout } = useAuth();
 
   useEffect(() => {
     if (open) setReports(getSavedReports());
@@ -89,6 +91,49 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+
+        <div className="border-t border-border/50 px-6 py-4">
+          {isLoading ? (
+            <div className="h-9 bg-muted animate-pulse rounded-md" />
+          ) : isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {user?.profileImageUrl ? (
+                  <img
+                    src={user.profileImageUrl}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-primary" />
+                  </div>
+                )}
+                <span className="text-sm font-medium text-foreground truncate">
+                  {user?.firstName ?? user?.email ?? 'Account'}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={logout}
+              >
+                <LogOut className="w-4 h-4 mr-1.5" />
+                Log out
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={login}
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Log in
+            </Button>
           )}
         </div>
       </SheetContent>

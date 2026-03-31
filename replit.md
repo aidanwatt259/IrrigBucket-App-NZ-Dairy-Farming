@@ -55,8 +55,9 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- App setup: `src/app.ts` — mounts CORS (credentials: true), cookieParser, JSON/urlencoded parsing, authMiddleware, routes at `/api`
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`); `src/routes/auth.ts` exposes auth endpoints
+- Auth: `src/lib/auth.ts` — OIDC config, session CRUD (PostgreSQL); `src/middlewares/authMiddleware.ts` — loads user from session on every request, patches `req.isAuthenticated()`
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
@@ -90,6 +91,10 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `lib/replit-auth-web` (`@workspace/replit-auth-web`)
+
+Browser auth helper for Replit Auth (OpenID Connect with PKCE). Provides a `useAuth()` hook that returns `{ user, isLoading, isAuthenticated, login, logout }`. The `login()` function redirects to `/api/login?returnTo=<BASE_URL>` and `logout()` redirects to `/api/logout`. Do NOT use generated API client code for auth — always use this package.
 
 ### `artifacts/irrigbucket` (`@workspace/irrigbucket`)
 
