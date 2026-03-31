@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Plus, Trash2 } from 'lucide-react';
@@ -27,6 +27,21 @@ export default function DataEntry() {
     }
   }, [plan, setLocation]);
 
+  // Enter key navigation handler — advances focus to next bucket input
+  const handleBucketKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-bucket-input]');
+      const next = inputs[index + 1];
+      if (next) {
+        next.focus();
+        next.select();
+      } else {
+        (e.currentTarget as HTMLInputElement).blur();
+      }
+    }
+  }, []);
+
   const handleCalculate = () => {
     if (irrigatorType === 'pivot') {
       setSections(localSections.filter(s => s.name.trim() !== ''));
@@ -53,6 +68,7 @@ export default function DataEntry() {
   if (!plan) return null;
 
   const isPivot = irrigatorType === 'pivot';
+  const filledCount = volumes.filter(v => v > 0).length;
 
   return (
     <AppLayout step={4} title="Enter Bucket Volumes">
@@ -87,30 +103,40 @@ export default function DataEntry() {
             </div>
 
             <div>
-              <div className="flex justify-between items-end mb-6">
+              <div className="flex justify-between items-end mb-4">
                 <h3 className="text-xl font-bold font-display">Bucket Volumes (mL)</h3>
                 <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                  {volumes.filter(v => v > 0).length} of {plan.bucketCount} entered
+                  {filledCount} of {plan.bucketCount} entered
                 </span>
               </div>
+              <p className="text-sm text-muted-foreground mb-6">
+                Press <kbd className="px-1.5 py-0.5 text-xs bg-muted border border-border rounded font-mono">Enter</kbd> to move to the next bucket quickly.
+              </p>
               
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {Array.from({ length: plan.bucketCount }).map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <Label htmlFor={`bucket-${i}`} className="text-xs text-muted-foreground">
-                      Bucket {i + 1}
-                    </Label>
-                    <Input 
-                      id={`bucket-${i}`}
-                      type="number" 
-                      min="0"
-                      className="text-lg font-semibold text-center"
-                      value={volumes[i] || ''}
-                      onChange={(e) => setVolume(i, Number(e.target.value))}
-                      placeholder="0"
-                    />
-                  </div>
-                ))}
+                {Array.from({ length: plan.bucketCount }).map((_, i) => {
+                  const isLast = i === plan.bucketCount - 1;
+                  return (
+                    <div key={i} className="space-y-2">
+                      <Label htmlFor={`bucket-${i}`} className="text-xs text-muted-foreground">
+                        Bucket {i + 1}
+                      </Label>
+                      <Input 
+                        id={`bucket-${i}`}
+                        type="number" 
+                        inputMode="decimal"
+                        enterKeyHint={isLast ? 'done' : 'next'}
+                        data-bucket-input
+                        min="0"
+                        className="text-lg font-semibold text-center"
+                        value={volumes[i] || ''}
+                        onChange={(e) => setVolume(i, Number(e.target.value))}
+                        onKeyDown={(e) => handleBucketKeyDown(e, i)}
+                        placeholder="0"
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
@@ -126,7 +152,7 @@ export default function DataEntry() {
                   <span className="text-sm font-normal text-muted-foreground">(optional)</span>
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Break your pivot into sections (e.g. Inner Span, Outer Span, End Gun) to see per-section DU and depth results.
+                  Break your pivot into sections (e.g. Inner Span, Outer Span, End Gun) to see per-section DU and depth results in your report.
                 </p>
               </div>
 
@@ -196,11 +222,11 @@ export default function DataEntry() {
           size="lg" 
           className="w-full" 
           onClick={handleCalculate}
-          disabled={volumes.filter(v => v > 0).length < 4}
+          disabled={filledCount < 4}
         >
           Calculate Results
         </Button>
-        {volumes.filter(v => v > 0).length < 4 && (
+        {filledCount < 4 && (
           <p className="text-sm text-center text-muted-foreground -mt-3">
             Enter at least 4 bucket measurements to continue
           </p>

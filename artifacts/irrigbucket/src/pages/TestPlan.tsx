@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { Printer, ArrowRight } from 'lucide-react';
+import { Printer, ArrowRight, Info } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,11 +28,10 @@ export default function TestPlan() {
     setChecks(newChecks);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (!plan) return null;
+
+  const isPivot = irrigatorType === 'pivot';
+  const startOffset = plan.startOffset ?? 0;
 
   return (
     <AppLayout step={3} title="Bucket Test Plan">
@@ -66,13 +65,11 @@ export default function TestPlan() {
             <h3 className="text-xl font-bold font-display mb-4">Placement Pattern</h3>
             <p className="text-lg text-muted-foreground mb-8">{plan.pattern}</p>
             
-            {/* Visual Diagram Placeholder - simplified SVG */}
+            {/* Visual Diagram */}
             <div className="bg-muted/30 rounded-xl p-8 flex justify-center items-center overflow-hidden border border-border/50">
               <svg width="100%" height="120" viewBox="0 0 400 120" className="max-w-full">
-                {/* Ground line */}
                 <line x1="0" y1="100" x2="400" y2="100" stroke="#cbd5e1" strokeWidth="4" />
                 
-                {/* Dynamically draw buckets based on count up to a visual max of 12 */}
                 {Array.from({ length: Math.min(plan.bucketCount, 12) }).map((_, i, arr) => {
                   const x = 40 + (i * (320 / (arr.length - 1 || 1)));
                   return (
@@ -86,26 +83,56 @@ export default function TestPlan() {
                 })}
                 
                 {plan.bucketCount > 12 && (
-                  <text x="200" y="60" textAnchor="middle" fill="#64748b" className="text-sm font-semibold">
+                  <text x="200" y="60" textAnchor="middle" fill="#64748b" fontSize="14" fontWeight="bold">
                     ... + {plan.bucketCount - 12} more buckets
                   </text>
                 )}
                 
-                {/* Dimension arrow */}
-                <line x1="40" y1="115" x2={40 + (320 / (Math.min(plan.bucketCount, 12) - 1 || 1))} y2="115" stroke="#64748b" strokeWidth="2" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                <text x={40 + (160 / (Math.min(plan.bucketCount, 12) - 1 || 1))} y="135" textAnchor="middle" fill="#64748b" className="text-xs font-bold">
+                <line x1="40" y1="115" x2={40 + (320 / (Math.min(plan.bucketCount, 12) - 1 || 1))} y2="115" stroke="#64748b" strokeWidth="2" />
+                <text x={40 + (160 / (Math.min(plan.bucketCount, 12) - 1 || 1))} y="135" textAnchor="middle" fill="#64748b" fontSize="12" fontWeight="bold">
                   {plan.spacing}m
                 </text>
-
-                <defs>
-                  <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
-                  </marker>
-                </defs>
               </svg>
             </div>
           </CardContent>
         </Card>
+
+        {/* Centre Pivot guidance note */}
+        {isPivot && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3 mb-4">
+                <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <h3 className="text-lg font-bold text-blue-900">Centre Pivot Guidance</h3>
+              </div>
+              <div className="space-y-4 text-sm text-blue-800 ml-8">
+                <div>
+                  <p className="font-semibold mb-1">
+                    Where to start placing buckets{startOffset > 0 ? ` — starting at ${startOffset}m from centre` : ''}:
+                  </p>
+                  <p>
+                    The inner spans closest to the pivot centre rotate very slowly, making bucket test measurements unreliable in that zone.
+                    {startOffset > 0
+                      ? ` Your start offset is set to ${startOffset}m — begin placing your first bucket here.`
+                      : ' Consider setting a start offset on the previous screen to skip the unreliable inner area (typically 150–200m for large pivots).'}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Why more buckets matter:</p>
+                  <p>
+                    More buckets give you more precise data about each nozzle's performance. 12–20 buckets gives a general estimate.
+                    For checking individual nozzle accuracy, use 40–50+ buckets with tighter spacing on the outer spans.
+                    You have <strong>{plan.bucketCount} buckets</strong> at <strong>{plan.spacing}m spacing</strong>.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Positioning:</p>
+                  <p>Place the bucket line at least <strong>15m from any wheel tracks</strong> to avoid compaction and runoff affecting readings.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-warning/50 shadow-md">
           <CardContent className="pt-8">
@@ -133,7 +160,7 @@ export default function TestPlan() {
         </Card>
 
         <div className="flex flex-col sm:flex-row gap-4 pt-4">
-          <Button variant="outline" size="lg" className="flex-1" onClick={handlePrint}>
+          <Button variant="outline" size="lg" className="flex-1" onClick={() => window.print()}>
             <Printer className="w-5 h-5 mr-2" />
             Print Plan
           </Button>

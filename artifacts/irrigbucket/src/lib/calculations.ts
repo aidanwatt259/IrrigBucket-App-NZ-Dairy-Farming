@@ -1,20 +1,24 @@
 export interface SystemParams {
   diameter: number; // mm
   targetDepth: number; // mm
-  
+
   // Pivot
   armLength?: number;
   spans?: number;
-  
+  startOffset?: number;
+  numBuckets?: number;
+  bucketSpacing?: number;
+
   // Lateral / Gun
   machineWidth?: number;
   laneSpacing?: number;
   gunRadius?: number;
-  
+  gunNumBuckets?: number;
+
   // K-Line
   podSpacing?: number;
   podsPerLateral?: number;
-  
+
   // Solid Set / Boom
   sprinklerSpacing?: number;
   rowSpacing?: number;
@@ -26,6 +30,8 @@ export interface Plan {
   bucketCount: number;
   spacing: number;
   pattern: string;
+  startOffset?: number;
+  armLength?: number;
 }
 
 export interface SectionDefinition {
@@ -63,13 +69,29 @@ export function calculatePlan(type: string, params: SystemParams): Plan {
   let count = 0;
   let spacing = 0;
   let pattern = "";
+  let startOffset: number | undefined;
+  let armLength: number | undefined;
 
   switch (type) {
-    case 'pivot':
-      spacing = (params.armLength || 400) / ((params.spans || 8) * 4);
-      count = Math.max(8, Math.min(24, Math.ceil((params.armLength || 400) / spacing)));
-      pattern = "Straight line from pivot center to end tower";
+    case 'pivot': {
+      const arm = params.armLength || 400;
+      const offset = params.startOffset || 0;
+      const testableLength = arm - offset;
+      armLength = arm;
+      startOffset = offset;
+
+      if (params.numBuckets) {
+        count = params.numBuckets;
+        spacing = params.bucketSpacing || Number((testableLength / (count - 1)).toFixed(1));
+      } else {
+        spacing = params.bucketSpacing || Number((arm / ((params.spans || 8) * 4)).toFixed(1));
+        count = Math.max(8, Math.min(24, Math.ceil(testableLength / spacing) + 1));
+      }
+
+      const startDesc = offset > 0 ? `${offset}m from the pivot centre` : 'near the pivot centre';
+      pattern = `Place ${count} buckets in a straight radial line starting ${startDesc} out to the end tower. Space them ${Number(spacing.toFixed(1))}m apart. Position the line at least 15m from any wheel tracks.`;
       break;
+    }
     case 'lateral':
       spacing = (params.machineWidth || 100) / 12;
       count = Math.max(6, 12);
@@ -80,11 +102,16 @@ export function calculatePlan(type: string, params: SystemParams): Plan {
       count = (params.podsPerLateral || 8) + 2;
       pattern = "One bucket near each pod, plus one at each end of the line";
       break;
-    case 'gun':
+    case 'gun': {
       spacing = (params.gunRadius || 40) / 4;
-      count = Math.max(8, Math.ceil((params.laneSpacing || 60) / spacing));
+      if (params.gunNumBuckets) {
+        count = params.gunNumBuckets;
+      } else {
+        count = Math.max(8, Math.ceil((params.laneSpacing || 60) / spacing));
+      }
       pattern = "Grid transect across the lane spacing";
       break;
+    }
     case 'solid':
       spacing = (params.sprinklerSpacing || 18) / 4;
       count = 12;
@@ -102,13 +129,15 @@ export function calculatePlan(type: string, params: SystemParams): Plan {
   }
 
   if (count < 4) count = 4;
-  if (count > 40) count = 40;
+  if (count > 200) count = 200;
   if (spacing <= 0 || !isFinite(spacing)) spacing = 5;
 
   return {
     bucketCount: count,
     spacing: Number(spacing.toFixed(1)),
-    pattern
+    pattern,
+    startOffset,
+    armLength,
   };
 }
 
