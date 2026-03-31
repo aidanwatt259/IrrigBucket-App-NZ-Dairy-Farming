@@ -292,7 +292,7 @@ export function calculateTestResults(
 
       const secAvgVol = sectionVolumes.reduce((a, b) => a + b, 0) / sectionVolumes.length;
       const secDepth = (1000 * secAvgVol) / bucketArea;
-      const secDU = sectionVolumes.length >= 4 ? calcDU(sectionVolumes) : NaN;
+      const secDU = sectionVolumes.length >= 2 ? calcDU(sectionVolumes) : NaN;
       const secDepthDiff = Math.abs(secDepth - targetDepth) / targetDepth * 100;
 
       return {
