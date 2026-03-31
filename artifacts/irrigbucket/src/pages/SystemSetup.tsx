@@ -95,7 +95,7 @@ export default function SystemSetup() {
   const isPivot = irrigatorType === 'pivot';
   const typeLabel: Record<string, string> = {
     pivot: 'Centre Pivot', lateral: 'Lateral Move', kline: 'K-Line / Pods',
-    gun: 'Travelling Gun', solid: 'Solid Set / Fixed', boom: 'Boom Spray',
+    gun: 'Travelling Gun', solid: 'Solid Set / Fixed', boom: 'Roto Rainer',
   };
 
   return (

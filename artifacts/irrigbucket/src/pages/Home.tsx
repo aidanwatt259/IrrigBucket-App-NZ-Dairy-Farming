@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { 
@@ -7,20 +6,64 @@ import {
   MoveRight, 
   Grip, 
   Target, 
-  Grid2X2, 
-  SprayCan 
+  Grid2X2,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+
+function RotoRainerIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Faint outer coverage circle */}
+      <circle cx="16" cy="16" r="13" stroke="currentColor" strokeWidth="0.75" strokeDasharray="2.5 2.5" opacity="0.25" />
+
+      {/* Arm 1 — pointing straight up */}
+      <line x1="16" y1="16" x2="16" y2="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      {/* Nozzle head */}
+      <circle cx="16" cy="4" r="2" fill="currentColor" />
+      {/* Water droplets */}
+      <circle cx="13.5" cy="2.5" r="1.1" fill="currentColor" opacity="0.5" />
+      <circle cx="18.5" cy="2.5" r="1.1" fill="currentColor" opacity="0.5" />
+
+      {/* Arm 2 — bottom right (120° from arm 1) */}
+      <line x1="16" y1="16" x2="25.3" y2="21.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="25.3" cy="21.5" r="2" fill="currentColor" />
+      <circle cx="27.5" cy="24" r="1.1" fill="currentColor" opacity="0.5" />
+      <circle cx="28" cy="21" r="1.1" fill="currentColor" opacity="0.5" />
+
+      {/* Arm 3 — bottom left (240° from arm 1) */}
+      <line x1="16" y1="16" x2="6.7" y2="21.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="6.7" cy="21.5" r="2" fill="currentColor" />
+      <circle cx="4.5" cy="24" r="1.1" fill="currentColor" opacity="0.5" />
+      <circle cx="4" cy="21" r="1.1" fill="currentColor" opacity="0.5" />
+
+      {/* Central hub */}
+      <circle cx="16" cy="16" r="3" fill="currentColor" />
+      <circle cx="16" cy="16" r="1.5" fill="none" stroke="white" strokeWidth="1.2" />
+
+      {/* Rotation arc hint */}
+      <path
+        d="M 16 5.5 A 10.5 10.5 0 0 1 24.5 20"
+        stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"
+        strokeDasharray="1.5 2.5" opacity="0.4"
+      />
+    </svg>
+  );
+}
 
 const irrigatorTypes = [
-  { id: 'pivot', name: 'Centre Pivot', desc: 'Rotating arm that sweeps in a circle', icon: CircleDot },
-  { id: 'lateral', name: 'Lateral Move', desc: 'Linear system moving across paddock', icon: MoveRight },
-  { id: 'kline', name: 'K-Line / Pods', desc: 'Portable pod-based drip system', icon: Grip },
-  { id: 'gun', name: 'Travelling Gun', desc: 'Single large sprinkler head on cart', icon: Target },
-  { id: 'solid', name: 'Solid Set / Fixed', desc: 'Permanent fixed sprinkler grid', icon: Grid2X2 },
-  { id: 'boom', name: 'Boom Spray', desc: 'Overhead spray boom system', icon: SprayCan },
+  { id: 'pivot', name: 'Centre Pivot', desc: 'Rotating arm that sweeps in a circle', icon: CircleDot, custom: false },
+  { id: 'lateral', name: 'Lateral Move', desc: 'Linear system moving across paddock', icon: MoveRight, custom: false },
+  { id: 'kline', name: 'K-Line / Pods', desc: 'Portable pod-based drip system', icon: Grip, custom: false },
+  { id: 'gun', name: 'Travelling Gun', desc: 'Single large sprinkler head on cart', icon: Target, custom: false },
+  { id: 'solid', name: 'Solid Set / Fixed', desc: 'Permanent fixed sprinkler grid', icon: Grid2X2, custom: false },
+  { id: 'boom', name: 'Roto Rainer', desc: 'Rotating boom arm sprinkler system', icon: null, custom: true },
 ];
 
 export default function Home() {
@@ -62,7 +105,6 @@ export default function Home() {
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {irrigatorTypes.map((type, i) => {
-            const Icon = type.icon;
             const isSelected = currentType === type.id;
             
             return (
@@ -80,7 +122,10 @@ export default function Home() {
                 >
                   <div className="p-6 md:p-8 flex-1 flex flex-col items-center text-center">
                     <div className={`p-4 rounded-2xl mb-6 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
-                      <Icon className="w-8 h-8" />
+                      {type.custom
+                        ? <RotoRainerIcon className="w-8 h-8" />
+                        : (() => { const Icon = type.icon!; return <Icon className="w-8 h-8" />; })()
+                      }
                     </div>
                     <h3 className="text-xl font-bold font-display mb-2">{type.name}</h3>
                     <p className="text-muted-foreground">{type.desc}</p>

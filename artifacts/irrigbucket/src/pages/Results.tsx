@@ -123,7 +123,7 @@ export default function Results() {
 
         {/* Summary line */}
         <p className="text-sm text-muted-foreground text-center">
-          {isPivot ? 'Centre Pivot' : 'Irrigator'} •{' '}
+          {isPivot ? 'Centre Pivot' : irrigatorType === 'boom' ? 'Roto Rainer' : 'Irrigator'} •{' '}
           {testDate ? new Date(testDate).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' }) : 'today'}
           {windSpeed ? ` • Wind: ${windSpeed} km/h` : ''}
           {operationData.farmName ? ` • ${operationData.farmName}` : ''}
