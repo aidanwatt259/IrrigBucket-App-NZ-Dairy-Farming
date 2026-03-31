@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
-import { Printer } from "lucide-react";
+import { Printer, CheckCircle, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const MOCK = {
@@ -117,6 +117,36 @@ export function MockReport() {
             </Button>
           </div>
         </div>
+
+        {/* ── DU Status Banner ──────────────────────────────── */}
+        {(() => {
+          const duPct = MOCK.overallDu * 100;
+          const status: DuStatus = MOCK.overallDu >= 0.8 ? "good" : MOCK.overallDu >= 0.65 ? "fair" : "poor";
+          const cfg = {
+            good: { label: "Pass", color: "text-green-700", bg: "bg-green-50", border: "border-green-300", Icon: CheckCircle, threshold: "≥ 80% Pass" },
+            fair: { label: "Attention Required", color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-300", Icon: Info, threshold: "65–79% Attention" },
+            poor: { label: "Fail — Action Needed", color: "text-red-700", bg: "bg-red-50", border: "border-red-300", Icon: AlertTriangle, threshold: "< 65% Fail" },
+          }[status];
+          return (
+            <div className={`flex items-center justify-between gap-4 rounded-xl border-2 ${cfg.border} ${cfg.bg} px-6 py-4`}>
+              <div className="flex items-center gap-4">
+                <div className={`p-2.5 rounded-full bg-white shadow-sm ${cfg.color}`}>
+                  <cfg.Icon className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-0.5">Distribution Uniformity</p>
+                  <p className={`text-xl font-bold ${cfg.color}`}>{cfg.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">DU = 1 − CV (NZ industry standard)</p>
+                </div>
+              </div>
+              <div className={`text-right shrink-0 ${cfg.color}`}>
+                <span className="text-5xl font-bold leading-none">{duPct.toFixed(1)}</span>
+                <span className="text-2xl font-bold">%</span>
+                <p className="text-xs text-slate-500 mt-1">{cfg.threshold}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Results Table ─────────────────────────────────── */}
         <section>
