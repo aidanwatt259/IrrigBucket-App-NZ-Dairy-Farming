@@ -157,7 +157,21 @@ export function MockReport() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-400 mt-1.5">Pass ≥ 80% DU | Attention 65–79% | Fail &lt; 65%</p>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            {[
+              { status: "good" as DuStatus, title: "Pass", threshold: "DU ≥ 80%", description: "No further action required. System is distributing water evenly." },
+              { status: "fair" as DuStatus, title: "Attention", threshold: "DU 65–79%", description: "Check system to resolve. Some areas receiving less water — inspect nozzles." },
+              { status: "poor" as DuStatus, title: "Fail", threshold: "DU < 65%", description: "Redo the test or seek professional assistance. Distribution is very uneven." },
+            ].map(({ status, title, threshold, description }) => (
+              <div key={status} className={`rounded-md border p-3 text-xs ${{ good: "bg-green-50 border-green-200", fair: "bg-amber-50 border-amber-200", poor: "bg-red-50 border-red-200" }[status]}`}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <StatusBadge status={status} />
+                  <span className={`font-semibold ${{ good: "text-green-700", fair: "text-amber-700", poor: "text-red-700" }[status]}`}>{threshold}</span>
+                </div>
+                <p className="text-slate-600 leading-relaxed">{description}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* ── Logged Data ───────────────────────────────────── */}
