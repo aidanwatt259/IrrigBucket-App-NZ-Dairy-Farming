@@ -1,15 +1,15 @@
 export interface SystemParams {
-  diameter: number; // mm
-  targetDepth: number; // mm
+  diameter: number;
+  targetDepth: number;
 
   // Pivot
   armLength?: number;
   spans?: number;
-  startOffset?: number;
-  numBuckets?: number;
-  bucketSpacing?: number;
+  cornerArmLength?: number;
+  hasEndGun?: string;      // 'Yes' | 'No'
+  gunWettedWidth?: number;
 
-  // Lateral / Gun
+  // Travelling Gun
   machineWidth?: number;
   laneSpacing?: number;
   gunRadius?: number;
@@ -26,18 +26,30 @@ export interface SystemParams {
   boomWidth?: number;
 }
 
+export interface PivotSection {
+  name: string;
+  from: number;         // m from pivot centre (0 for gun)
+  to: number;           // m from pivot centre (gunWettedWidth for gun)
+  buckets: number;
+  spacing: number;
+  sectionLength: number;
+  isGun?: boolean;
+}
+
 export interface Plan {
   bucketCount: number;
   spacing: number;
   pattern: string;
   startOffset?: number;
   armLength?: number;
+  numSpans?: number;
+  pivotSections?: PivotSection[];
 }
 
 export interface SectionDefinition {
   name: string;
-  fromBucket: number; // 1-indexed inclusive
-  toBucket: number;   // 1-indexed inclusive
+  fromBucket: number;
+  toBucket: number;
 }
 
 export interface SectionResult {
@@ -66,32 +78,91 @@ export interface TestResults {
 }
 
 export function calculatePlan(type: string, params: SystemParams): Plan {
+  if (type === 'pivot') {
+    const arm = params.armLength || 400;
+    const numSpans = params.spans || 8;
+    const hasGun = params.hasEndGun === 'Yes';
+    const gunWettedWidth = params.gunWettedWidth || 0;
+
+    const spanLength = arm / numSpans;
+    const skipSpans = 2;
+    const startOffset = Math.round(skipSpans * spanLength);
+
+    const testablePivotLength = arm - startOffset;
+    const innerLength = Math.round(testablePivotLength / 2);
+    const outerLength = testablePivotLength - innerLength;
+
+    const innerSpacing = Math.max(3, Math.round(innerLength / 22));
+    const outerSpacing = Math.max(5, Math.round(outerLength / 22));
+
+    const innerBuckets = Math.floor(innerLength / innerSpacing) + 1;
+    const outerBuckets = Math.floor(outerLength / outerSpacing) + 1;
+
+    let gunBuckets = 0;
+    let gunSpacing = 0;
+    if (hasGun && gunWettedWidth > 0) {
+      gunBuckets = 8;
+      gunSpacing = Math.round(gunWettedWidth / (gunBuckets - 1));
+    }
+
+    const totalBuckets = innerBuckets + outerBuckets + gunBuckets;
+
+    const pivotSections: PivotSection[] = [
+      {
+        name: 'Inner Spans',
+        from: startOffset,
+        to: startOffset + innerLength,
+        buckets: innerBuckets,
+        spacing: innerSpacing,
+        sectionLength: innerLength,
+      },
+      {
+        name: 'Outer Spans',
+        from: startOffset + innerLength,
+        to: arm,
+        buckets: outerBuckets,
+        spacing: outerSpacing,
+        sectionLength: outerLength,
+      },
+      ...(hasGun && gunWettedWidth > 0
+        ? [{
+            name: 'End Gun',
+            from: 0,
+            to: gunWettedWidth,
+            buckets: gunBuckets,
+            spacing: gunSpacing,
+            sectionLength: gunWettedWidth,
+            isGun: true,
+          }]
+        : []),
+    ];
+
+    const pattern =
+      `Place buckets in a straight radial line starting ${startOffset}m from the pivot centre. ` +
+      `The first ${innerBuckets} buckets (Inner Spans) are spaced ${innerSpacing}m apart. ` +
+      `The next ${outerBuckets} buckets (Outer Spans) are spaced ${outerSpacing}m apart. ` +
+      (hasGun && gunWettedWidth > 0
+        ? `Place an additional ${gunBuckets} buckets perpendicular to the pivot arm at the gun position, spaced ${gunSpacing}m apart across the ${gunWettedWidth}m throw width. `
+        : '') +
+      `Position all radial buckets at least 15m from any wheel tracks.`;
+
+    return {
+      bucketCount: totalBuckets,
+      spacing: outerSpacing,
+      pattern,
+      startOffset,
+      armLength: arm,
+      numSpans,
+      pivotSections,
+    };
+  }
+
+  // ---- Non-pivot types ----
   let count = 0;
   let spacing = 0;
   let pattern = "";
-  let startOffset: number | undefined;
-  let armLength: number | undefined;
 
   switch (type) {
-    case 'pivot': {
-      const arm = params.armLength || 400;
-      const offset = params.startOffset || 0;
-      const testableLength = arm - offset;
-      armLength = arm;
-      startOffset = offset;
-
-      if (params.numBuckets) {
-        count = params.numBuckets;
-        spacing = params.bucketSpacing || Number((testableLength / (count - 1)).toFixed(1));
-      } else {
-        spacing = params.bucketSpacing || Number((arm / ((params.spans || 8) * 4)).toFixed(1));
-        count = Math.max(8, Math.min(24, Math.ceil(testableLength / spacing) + 1));
-      }
-
-      const startDesc = offset > 0 ? `${offset}m from the pivot centre` : 'near the pivot centre';
-      pattern = `Place ${count} buckets in a straight radial line starting ${startDesc} out to the end tower. Space them ${Number(spacing.toFixed(1))}m apart. Position the line at least 15m from any wheel tracks.`;
-      break;
-    }
     case 'lateral':
       spacing = (params.machineWidth || 100) / 12;
       count = Math.max(6, 12);
@@ -136,8 +207,6 @@ export function calculatePlan(type: string, params: SystemParams): Plan {
     bucketCount: count,
     spacing: Number(spacing.toFixed(1)),
     pattern,
-    startOffset,
-    armLength,
   };
 }
 
@@ -164,6 +233,16 @@ export function depthStatusRating(depthDiff: number): 'good' | 'fair' | 'poor' {
   return depthDiff <= 10 ? 'good' : depthDiff <= 25 ? 'fair' : 'poor';
 }
 
+export function sectionsFromPivot(pivotSections: PivotSection[]): SectionDefinition[] {
+  let bucketIndex = 1;
+  return pivotSections.map(sec => {
+    const from = bucketIndex;
+    const to = bucketIndex + sec.buckets - 1;
+    bucketIndex = to + 1;
+    return { name: sec.name, fromBucket: from, toBucket: to };
+  });
+}
+
 export function calculateTestResults(
   volumes: number[],
   diameter: number,
@@ -174,7 +253,7 @@ export function calculateTestResults(
   if (validVolumes.length < 4) return null;
 
   const radius = diameter / 2;
-  const bucketArea = Math.PI * radius * radius; // mm²
+  const bucketArea = Math.PI * radius * radius;
 
   const avgVolume = validVolumes.reduce((a, b) => a + b, 0) / validVolumes.length;
   const avgDepth = (1000 * avgVolume) / bucketArea;

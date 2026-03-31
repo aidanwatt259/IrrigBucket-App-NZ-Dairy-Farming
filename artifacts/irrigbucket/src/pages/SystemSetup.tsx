@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,7 @@ function FieldHint({ children }: { children: React.ReactNode }) {
 export default function SystemSetup() {
   const [, setLocation] = useLocation();
   const { irrigatorType, systemParams, setSystemParams, generatePlan } = useAppStore();
+  const [hasEndGun, setHasEndGun] = useState<string>(systemParams.hasEndGun ?? 'No');
 
   useEffect(() => {
     if (!irrigatorType) {
@@ -35,9 +36,10 @@ export default function SystemSetup() {
   if (irrigatorType === 'pivot') {
     schema = baseSchema.extend({
       armLength: z.coerce.number().min(10).max(5000),
-      startOffset: z.coerce.number().min(0).max(2000).optional().default(0),
-      numBuckets: z.coerce.number().min(4).max(200),
-      bucketSpacing: z.coerce.number().min(1).max(500),
+      spans: z.coerce.number().min(2).max(30),
+      cornerArmLength: z.coerce.number().min(0).max(500).optional().default(0),
+      hasEndGun: z.string().optional().default('No'),
+      gunWettedWidth: z.coerce.number().min(5).max(500).optional(),
     });
   } else if (irrigatorType === 'lateral') {
     schema = baseSchema.extend({
@@ -72,9 +74,10 @@ export default function SystemSetup() {
     defaultValues: {
       ...systemParams,
       armLength: systemParams.armLength || 400,
-      startOffset: systemParams.startOffset ?? 0,
-      numBuckets: systemParams.numBuckets || undefined,
-      bucketSpacing: systemParams.bucketSpacing || undefined,
+      spans: systemParams.spans || 8,
+      cornerArmLength: systemParams.cornerArmLength ?? 0,
+      hasEndGun: systemParams.hasEndGun ?? 'No',
+      gunWettedWidth: systemParams.gunWettedWidth || undefined,
       machineWidth: systemParams.machineWidth || 100,
       podSpacing: systemParams.podSpacing || 15,
       podsPerLateral: systemParams.podsPerLateral || 8,
@@ -88,7 +91,7 @@ export default function SystemSetup() {
   });
 
   const onSubmit = (data: FormData) => {
-    setSystemParams(data);
+    setSystemParams({ ...data, hasEndGun });
     generatePlan();
     setLocation('/plan');
   };
@@ -136,49 +139,62 @@ export default function SystemSetup() {
                 <h3 className="text-xl font-bold font-display border-b pb-2">
                   {typeLabel[irrigatorType] || irrigatorType} Settings
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                  {irrigatorType === 'pivot' && (
-                    <>
-                      <div className="space-y-3 md:col-span-2">
-                        <Label htmlFor="armLength">Pivot Arm Length (m)</Label>
+                {irrigatorType === 'pivot' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <Label htmlFor="armLength">Pivot Length / Radius (m)</Label>
                         <Input id="armLength" type="number" {...register('armLength')} />
                         {errors.armLength && <p className="text-destructive text-sm">{String((errors.armLength as { message?: string }).message)}</p>}
-                        <FieldHint>Total length from centre pivot to the end tower</FieldHint>
+                        <FieldHint>Distance from pivot centre to the end tower</FieldHint>
                       </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="spans">Number of Spans</Label>
+                        <Input id="spans" type="number" min={2} {...register('spans')} />
+                        {errors.spans && <p className="text-destructive text-sm">{String((errors.spans as { message?: string }).message)}</p>}
+                        <FieldHint>Count of spans from pivot centre to end tower</FieldHint>
+                      </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="cornerArmLength">Corner Arm Length (m) <span className="text-muted-foreground font-normal text-xs">optional</span></Label>
+                        <Input id="cornerArmLength" type="number" placeholder="e.g. 85" min={0} max={500} defaultValue={0} {...register('cornerArmLength')} />
+                        {errors.cornerArmLength && <p className="text-destructive text-sm">{String((errors.cornerArmLength as { message?: string }).message)}</p>}
+                        <FieldHint>Length of corner/end arm if fitted. Leave as 0 if none.</FieldHint>
+                      </div>
+                    </div>
 
-                      <div className="space-y-3 md:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-5">
-                        <div className="flex items-start gap-3">
-                          <span className="text-2xl">⚠️</span>
-                          <div>
-                            <p className="font-semibold text-amber-900 mb-1">Start Offset — Skip the inner spans</p>
-                            <p className="text-sm text-amber-800">Inner spans near the pivot centre rotate very slowly, making bucket tests unreliable in that zone. Set a start offset to begin measuring further out.</p>
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="font-semibold text-base">End Gun</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label htmlFor="hasEndGun">Has End Gun?</Label>
+                          <select
+                            id="hasEndGun"
+                            {...register('hasEndGun')}
+                            value={hasEndGun}
+                            onChange={(e) => setHasEndGun(e.target.value)}
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <option value="No">No</option>
+                            <option value="Yes">Yes</option>
+                          </select>
+                          <FieldHint>Does the pivot have a gun that extends beyond the last tower?</FieldHint>
+                        </div>
+
+                        {hasEndGun === 'Yes' && (
+                          <div className="space-y-3">
+                            <Label htmlFor="gunWettedWidth">Gun Wetted Width (m)</Label>
+                            <Input id="gunWettedWidth" type="number" placeholder="e.g. 60" min={5} max={500} {...register('gunWettedWidth')} />
+                            {errors.gunWettedWidth && <p className="text-destructive text-sm">{String((errors.gunWettedWidth as { message?: string }).message)}</p>}
+                            <FieldHint>Total wetted diameter/width of the end gun throw</FieldHint>
                           </div>
-                        </div>
-                        <div className="space-y-3 mt-3">
-                          <Label htmlFor="startOffset">Start Offset — Skip Inner Area (m)</Label>
-                          <Input id="startOffset" type="number" placeholder="e.g. 185" min={0} max={2000} {...register('startOffset')} />
-                          {errors.startOffset && <p className="text-destructive text-sm">{String((errors.startOffset as { message?: string }).message)}</p>}
-                          <FieldHint>Distance from pivot centre where you'll start placing your first bucket. Leave 0 to start from the centre.</FieldHint>
-                        </div>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      <div className="space-y-3">
-                        <Label htmlFor="numBuckets">Number of Buckets</Label>
-                        <Input id="numBuckets" type="number" placeholder="e.g. 46" min={4} max={200} {...register('numBuckets')} />
-                        {errors.numBuckets && <p className="text-destructive text-sm">{String((errors.numBuckets as { message?: string }).message)}</p>}
-                        <FieldHint>More buckets = more precise results. Professionals typically use 40–50+ buckets.</FieldHint>
-                      </div>
-
-                      <div className="space-y-3">
-                        <Label htmlFor="bucketSpacing">Bucket Spacing (m)</Label>
-                        <Input id="bucketSpacing" type="number" placeholder="e.g. 11" min={1} max={500} {...register('bucketSpacing')} />
-                        {errors.bucketSpacing && <p className="text-destructive text-sm">{String((errors.bucketSpacing as { message?: string }).message)}</p>}
-                        <FieldHint>Outer spans typically use tighter spacing (e.g. 11m) than inner spans (e.g. 21m) for better resolution.</FieldHint>
-                      </div>
-                    </>
-                  )}
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {irrigatorType === 'lateral' && (
                     <div className="space-y-3">
                       <Label htmlFor="machineWidth">Machine Width (m)</Label>
@@ -218,7 +234,7 @@ export default function SystemSetup() {
                         <Label htmlFor="gunNumBuckets">Number of Buckets <span className="text-muted-foreground font-normal">(optional)</span></Label>
                         <Input id="gunNumBuckets" type="number" placeholder="e.g. 8" min={4} max={100} {...register('gunNumBuckets')} />
                         {errors.gunNumBuckets && <p className="text-destructive text-sm">{String((errors.gunNumBuckets as { message?: string }).message)}</p>}
-                        <FieldHint>Leave blank to auto-calculate. Professionals often use 8 buckets split across both sides of the gun's path.</FieldHint>
+                        <FieldHint>Leave blank to auto-calculate. Professionals often use 8 buckets split across both sides.</FieldHint>
                       </div>
                     </>
                   )}
@@ -245,7 +261,6 @@ export default function SystemSetup() {
                       </div>
                     </>
                   )}
-
                 </div>
               </div>
 
@@ -253,7 +268,7 @@ export default function SystemSetup() {
           </Card>
 
           <Button type="submit" size="lg" className="w-full">
-            Calculate Test Plan
+            {irrigatorType === 'pivot' ? 'Calculate Bucket Test Setup' : 'Calculate Test Plan'}
           </Button>
         </form>
       </motion.div>
