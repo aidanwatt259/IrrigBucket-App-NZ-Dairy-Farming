@@ -62,16 +62,16 @@ const avgDepth = Number(((1000 * avgVolume) / bucketArea).toFixed(1));
 
 type DuStatus = "good" | "fair" | "poor";
 
-function StatusIndicator({ status }: { status: DuStatus }) {
-  const map = {
-    good: { label: "Y", cls: "bg-green-100 text-green-800 border-green-300" },
-    fair: { label: "!", cls: "bg-amber-100 text-amber-800 border-amber-300" },
-    poor: { label: "N", cls: "bg-red-100 text-red-800 border-red-300" },
-  };
-  const { label, cls } = map[status];
+function StatusBadge({ status, labels }: { status: DuStatus; labels?: { good: string; fair: string; poor: string } }) {
+  const text = labels ? labels[status] : status === "good" ? "Pass" : status === "fair" ? "Attention" : "Fail";
+  const cls = {
+    good: "bg-green-100 text-green-800 border-green-200",
+    fair: "bg-amber-100 text-amber-800 border-amber-200",
+    poor: "bg-red-100 text-red-800 border-red-200",
+  }[status];
   return (
-    <span className={`inline-flex items-center justify-center w-6 h-6 rounded font-bold text-xs border ${cls}`}>
-      {label}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${cls}`}>
+      {text}
     </span>
   );
 }
@@ -118,38 +118,7 @@ export function MockReport() {
           </div>
         </div>
 
-        {/* ── Distribution Uniformity Summary ───────────────── */}
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Distribution Uniformity</h2>
-          <div className="border border-slate-200 rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Section</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">No. Buckets</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">DU</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Status</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Avg Depth (mm)</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Target (mm)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK.sections.map((sec, i) => (
-                  <tr key={i} className={`border-b border-slate-100 last:border-0 ${i === 0 ? "bg-slate-50/50 font-semibold" : ""}`}>
-                    <td className="px-4 py-2.5 text-slate-800">{sec.name}</td>
-                    <td className="px-3 py-2.5 text-center text-slate-600">{sec.buckets}</td>
-                    <td className="px-3 py-2.5 text-center font-mono font-semibold">{sec.du.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 text-center"><StatusIndicator status={sec.duStatus} /></td>
-                    <td className="px-3 py-2.5 text-center">{sec.avgDepth.toFixed(1)}</td>
-                    <td className="px-3 py-2.5 text-center text-slate-500">{MOCK.targetDepth}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* ── Results Detail Table ───────────────────────────── */}
+        {/* ── Results Table ─────────────────────────────────── */}
         <section>
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Results</h2>
           <div className="border border-slate-200 rounded-md overflow-hidden">
@@ -157,57 +126,38 @@ export function MockReport() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Section</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600" colSpan={2}>Distribution Uniformity (DU)</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600" colSpan={2}>Applied Depth (mm)</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">No. Buckets</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">DU</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">DU Status</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Avg Depth (mm)</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Depth Status</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Intensity (mm/hr)</th>
                 </tr>
               </thead>
               <tbody>
-                {MOCK.sections.map((sec, i) => (
-                  <tr key={i} className={`border-b border-slate-100 last:border-0 ${i === 0 ? "bg-slate-50/50 font-semibold" : ""}`}>
-                    <td className="px-4 py-2.5 text-slate-800">{sec.name}</td>
-                    <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800">{sec.du.toFixed(2)}</td>
-                    <td className="px-3 py-2.5 text-center"><StatusIndicator status={sec.duStatus} /></td>
-                    <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800">{sec.avgDepth.toFixed(1)}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <StatusIndicator status={Math.abs(sec.avgDepth - MOCK.targetDepth) / MOCK.targetDepth <= 0.1 ? "good" : Math.abs(sec.avgDepth - MOCK.targetDepth) / MOCK.targetDepth <= 0.2 ? "fair" : "poor"} />
-                    </td>
-                    <td className="px-3 py-2.5 text-center text-slate-600">
-                      {sec.intensity != null ? sec.intensity.toFixed(2) : <span className="text-slate-300">—</span>}
-                    </td>
-                  </tr>
-                ))}
+                {MOCK.sections.map((sec, i) => {
+                  const depthStatus: DuStatus = Math.abs(sec.avgDepth - MOCK.targetDepth) / MOCK.targetDepth <= 0.1
+                    ? "good" : Math.abs(sec.avgDepth - MOCK.targetDepth) / MOCK.targetDepth <= 0.2 ? "fair" : "poor";
+                  return (
+                    <tr key={i} className={`border-b border-slate-100 last:border-0 ${i === 0 ? "bg-slate-50/50 font-semibold" : ""}`}>
+                      <td className="px-4 py-2.5 text-slate-800">{sec.name}</td>
+                      <td className="px-3 py-2.5 text-center text-slate-600">{sec.buckets}</td>
+                      <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800">{sec.du.toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-center"><StatusBadge status={sec.duStatus} /></td>
+                      <td className="px-3 py-2.5 text-center font-mono text-slate-800">{sec.avgDepth.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <StatusBadge status={depthStatus} labels={{ good: "On Target", fair: "Close", poor: "Off Target" }} />
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-slate-600">
+                        {sec.intensity != null ? sec.intensity.toFixed(2) : <span className="text-slate-300">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </section>
-
-        {/* ── Results Explanation ────────────────────────────── */}
-        <section className="border border-slate-200 rounded-md p-4 bg-slate-50">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Results Explanation</h2>
-          <div className="grid grid-cols-3 gap-4 text-xs">
-            <div className="flex items-start gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded font-bold border bg-green-100 text-green-800 border-green-300 shrink-0">Y</span>
-              <div>
-                <p className="font-bold text-slate-700">Test Passed</p>
-                <p className="text-slate-500 mt-0.5">No further action required</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded font-bold border bg-amber-100 text-amber-800 border-amber-300 shrink-0">!</span>
-              <div>
-                <p className="font-bold text-slate-700">Attention Needed</p>
-                <p className="text-slate-500 mt-0.5">Check system to resolve</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="inline-flex items-center justify-center w-6 h-6 rounded font-bold border bg-red-100 text-red-800 border-red-300 shrink-0">N</span>
-              <div>
-                <p className="font-bold text-slate-700">Test Did Not Pass</p>
-                <p className="text-slate-500 mt-0.5">Redo the test or seek professional assistance</p>
-              </div>
-            </div>
-          </div>
+          <p className="text-xs text-slate-400 mt-1.5">Pass ≥ 80% DU | Attention 65–79% | Fail &lt; 65%</p>
         </section>
 
         {/* ── Logged Data ───────────────────────────────────── */}
