@@ -5,9 +5,11 @@ export interface SystemParams {
   // Pivot
   armLength?: number;
   spans?: number;
-  cornerArmLength?: number;
-  hasEndGun?: string;      // 'Yes' | 'No'
-  gunWettedWidth?: number;
+  hasEndGun?: string;       // 'Yes' | 'No'
+  revolutionTime?: number;  // hours
+  operatingPressure?: number;
+  numSprinklers?: number;
+  flowRate?: number;
 
   // Travelling Gun
   machineWidth?: number;
@@ -26,14 +28,32 @@ export interface SystemParams {
   boomWidth?: number;
 }
 
+export interface OperationData {
+  assessorName?: string;
+  farmName?: string;
+  irrigatorName?: string;
+  actualSpeed?: string;
+  inletPressure?: string;
+  speedTestTime?: string;
+  speedTestDistance?: string;
+  percentTimer?: string;
+  wettedWidth?: string;
+  cornerArm?: string;
+  weatherConditions?: string;
+  windDirection?: string;
+  testStartTime?: string;
+  testEndTime?: string;
+}
+
 export interface PivotSection {
   name: string;
-  from: number;         // m from pivot centre (0 for gun)
-  to: number;           // m from pivot centre (gunWettedWidth for gun)
+  from: number;
+  to: number;
   buckets: number;
   spacing: number;
   sectionLength: number;
   isGun?: boolean;
+  isExcluded?: boolean;  // Section A — no buckets, display only
 }
 
 export interface Plan {
@@ -80,79 +100,83 @@ export interface TestResults {
 export function calculatePlan(type: string, params: SystemParams): Plan {
   if (type === 'pivot') {
     const arm = params.armLength || 400;
-    const numSpans = params.spans || 8;
     const hasGun = params.hasEndGun === 'Yes';
-    const gunWettedWidth = params.gunWettedWidth || 0;
 
-    const spanLength = arm / numSpans;
-    const skipSpans = 2;
-    const startOffset = Math.round(skipSpans * spanLength);
+    // Industry-standard section split: A=inner ¼, B=middle ½, C=outer ¼
+    const quarterLen = Math.round(arm / 4);
 
-    const testablePivotLength = arm - startOffset;
-    const innerLength = Math.round(testablePivotLength / 2);
-    const outerLength = testablePivotLength - innerLength;
+    const sectionAEnd = quarterLen;                     // 0 → ¼
+    const sectionBStart = quarterLen;
+    const sectionBEnd = Math.round(arm * 0.75);        // ¼ → ¾
+    const sectionBLen = sectionBEnd - sectionBStart;
+    const sectionCStart = sectionBEnd;
+    const sectionCLen = arm - sectionCStart;             // ¾ → end
 
-    const innerSpacing = Math.max(3, Math.round(innerLength / 22));
-    const outerSpacing = Math.max(5, Math.round(outerLength / 22));
+    // ~21m target spacing for B, ~11m for C
+    const bBuckets = Math.max(2, Math.ceil(sectionBLen / 21));
+    const bSpacing = Number((sectionBLen / (bBuckets - 1)).toFixed(1));
 
-    const innerBuckets = Math.floor(innerLength / innerSpacing) + 1;
-    const outerBuckets = Math.floor(outerLength / outerSpacing) + 1;
+    const cBuckets = Math.max(2, Math.ceil(sectionCLen / 11));
+    const cSpacing = Number((sectionCLen / (cBuckets - 1)).toFixed(1));
 
-    let gunBuckets = 0;
-    let gunSpacing = 0;
-    if (hasGun && gunWettedWidth > 0) {
-      gunBuckets = 8;
-      gunSpacing = Math.round(gunWettedWidth / (gunBuckets - 1));
-    }
+    const gunBuckets = hasGun ? 3 : 0;
+    const gunSpacing = 5;
+    const gunEnd = arm + (gunBuckets - 1) * gunSpacing;
 
-    const totalBuckets = innerBuckets + outerBuckets + gunBuckets;
+    const totalBuckets = bBuckets + cBuckets + gunBuckets;
 
     const pivotSections: PivotSection[] = [
       {
-        name: 'Inner Spans',
-        from: startOffset,
-        to: startOffset + innerLength,
-        buckets: innerBuckets,
-        spacing: innerSpacing,
-        sectionLength: innerLength,
+        name: 'Section A (Inner)',
+        from: 0,
+        to: sectionAEnd,
+        buckets: 0,
+        spacing: 0,
+        sectionLength: sectionAEnd,
+        isExcluded: true,
       },
       {
-        name: 'Outer Spans',
-        from: startOffset + innerLength,
-        to: arm,
-        buckets: outerBuckets,
-        spacing: outerSpacing,
-        sectionLength: outerLength,
+        name: 'Section B (Mid spans)',
+        from: sectionBStart,
+        to: sectionBEnd,
+        buckets: bBuckets,
+        spacing: bSpacing,
+        sectionLength: sectionBLen,
       },
-      ...(hasGun && gunWettedWidth > 0
-        ? [{
-            name: 'End Gun',
-            from: 0,
-            to: gunWettedWidth,
-            buckets: gunBuckets,
-            spacing: gunSpacing,
-            sectionLength: gunWettedWidth,
-            isGun: true,
-          }]
-        : []),
+      {
+        name: 'Section C (Outer spans)',
+        from: sectionCStart,
+        to: arm,
+        buckets: cBuckets,
+        spacing: cSpacing,
+        sectionLength: sectionCLen,
+      },
+      ...(hasGun ? [{
+        name: 'End Gun',
+        from: arm,
+        to: gunEnd,
+        buckets: gunBuckets,
+        spacing: gunSpacing,
+        sectionLength: (gunBuckets - 1) * gunSpacing,
+        isGun: true,
+      }] : []),
     ];
 
     const pattern =
-      `Place buckets in a straight radial line starting ${startOffset}m from the pivot centre. ` +
-      `The first ${innerBuckets} buckets (Inner Spans) are spaced ${innerSpacing}m apart. ` +
-      `The next ${outerBuckets} buckets (Outer Spans) are spaced ${outerSpacing}m apart. ` +
-      (hasGun && gunWettedWidth > 0
-        ? `Place an additional ${gunBuckets} buckets perpendicular to the pivot arm at the gun position, spaced ${gunSpacing}m apart across the ${gunWettedWidth}m throw width. `
-        : '') +
-      `Position all radial buckets at least 15m from any wheel tracks.`;
+      `Place ${totalBuckets} buckets in a straight radial line. ` +
+      `Start at ${sectionBStart}m from the pivot centre (skip the inner ${sectionAEnd}m). ` +
+      `Section B (${sectionBStart}–${sectionBEnd}m): ${bBuckets} buckets at ${bSpacing}m spacing. ` +
+      `Section C (${sectionCStart}–${arm}m): ${cBuckets} buckets at ${cSpacing}m spacing. ` +
+      (hasGun ? `End Gun: ${gunBuckets} buckets at ${gunSpacing}m spacing beyond ${arm}m. ` : '') +
+      `Keep all buckets at least 15m from wheel tracks.`;
 
     return {
       bucketCount: totalBuckets,
-      spacing: outerSpacing,
+      spacing: bSpacing,
       pattern,
-      startOffset,
+      startOffset: sectionBStart,
       armLength: arm,
-      numSpans,
+      numSpans: params.spans,
       pivotSections,
     };
   }
@@ -160,43 +184,39 @@ export function calculatePlan(type: string, params: SystemParams): Plan {
   // ---- Non-pivot types ----
   let count = 0;
   let spacing = 0;
-  let pattern = "";
+  let pattern = '';
 
   switch (type) {
     case 'lateral':
       spacing = (params.machineWidth || 100) / 12;
-      count = Math.max(6, 12);
-      pattern = "Line perpendicular to the direction of travel";
+      count = 12;
+      pattern = 'Line perpendicular to the direction of travel';
       break;
     case 'kline':
       spacing = params.podSpacing || 15;
       count = (params.podsPerLateral || 8) + 2;
-      pattern = "One bucket near each pod, plus one at each end of the line";
+      pattern = 'One bucket near each pod, plus one at each end of the line';
       break;
     case 'gun': {
       spacing = (params.gunRadius || 40) / 4;
-      if (params.gunNumBuckets) {
-        count = params.gunNumBuckets;
-      } else {
-        count = Math.max(8, Math.ceil((params.laneSpacing || 60) / spacing));
-      }
-      pattern = "Grid transect across the lane spacing";
+      count = params.gunNumBuckets || Math.max(8, Math.ceil((params.laneSpacing || 60) / spacing));
+      pattern = 'Grid transect across the lane spacing';
       break;
     }
     case 'solid':
       spacing = (params.sprinklerSpacing || 18) / 4;
       count = 12;
-      pattern = "Even grid between 4 adjacent sprinklers";
+      pattern = 'Even grid between 4 adjacent sprinklers';
       break;
     case 'boom':
       spacing = params.nozzleSpacing || 2;
       count = Math.ceil((params.boomWidth || 30) / spacing);
-      pattern = "Straight line directly under the boom path";
+      pattern = 'Straight line directly under the boom path';
       break;
     default:
       count = 10;
       spacing = 5;
-      pattern = "Even spacing across wetted area";
+      pattern = 'Even spacing across wetted area';
   }
 
   if (count < 4) count = 4;
@@ -235,12 +255,14 @@ export function depthStatusRating(depthDiff: number): 'good' | 'fair' | 'poor' {
 
 export function sectionsFromPivot(pivotSections: PivotSection[]): SectionDefinition[] {
   let bucketIndex = 1;
-  return pivotSections.map(sec => {
-    const from = bucketIndex;
-    const to = bucketIndex + sec.buckets - 1;
-    bucketIndex = to + 1;
-    return { name: sec.name, fromBucket: from, toBucket: to };
-  });
+  return pivotSections
+    .filter(sec => !sec.isExcluded && sec.buckets > 0)
+    .map(sec => {
+      const from = bucketIndex;
+      const to = bucketIndex + sec.buckets - 1;
+      bucketIndex = to + 1;
+      return { name: sec.name, fromBucket: from, toBucket: to };
+    });
 }
 
 export function calculateTestResults(
@@ -270,32 +292,25 @@ export function calculateTestResults(
 
       const secAvgVol = sectionVolumes.reduce((a, b) => a + b, 0) / sectionVolumes.length;
       const secDepth = (1000 * secAvgVol) / bucketArea;
-      const secDU = calcDU(sectionVolumes);
+      const secDU = sectionVolumes.length >= 4 ? calcDU(sectionVolumes) : NaN;
       const secDepthDiff = Math.abs(secDepth - targetDepth) / targetDepth * 100;
 
       return {
         name: sec.name,
         du: secDU,
-        duStatus: duStatusRating(secDU),
+        duStatus: isNaN(secDU) ? 'fair' : duStatusRating(secDU),
         avgDepth: secDepth,
         depthDiff: secDepthDiff,
         depthStatus: depthStatusRating(secDepthDiff),
         bucketCount: sectionVolumes.length,
-      };
+      } as SectionResult;
     })
     .filter((s): s is SectionResult => s !== null);
 
   return {
-    du,
-    avgDepth,
-    stdDev,
-    avgVolume,
-    bucketArea,
-    allVolumes: volumes,
-    validVolumes,
-    sections,
-    targetDepth,
-    depthDiff,
+    du, avgDepth, stdDev, avgVolume, bucketArea,
+    allVolumes: volumes, validVolumes, sections,
+    targetDepth, depthDiff,
     duStatus: duStatusRating(du),
     depthStatus: depthStatusRating(depthDiff),
   };

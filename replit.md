@@ -91,6 +91,33 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/irrigbucket` (`@workspace/irrigbucket`)
+
+Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucket tests.
+
+**Technology**: React 18, Vite 7, TypeScript, Tailwind CSS, shadcn/ui, Zustand (state), Zod + react-hook-form (forms), Recharts (bar chart), framer-motion (animations), Wouter (routing)
+
+**Routes / Pages:**
+- `/` — Home: irrigator type selector (6 types)
+- `/setup` — SystemSetup: enter system specs
+- `/plan` — TestPlan: view/edit bucket test plan
+- `/operation` — Operation (Centre Pivot only, Step 4/6): record machine operational data
+- `/data` — DataEntry: enter bucket volumes (grouped by section for pivot)
+- `/results` — Results: DU calculation, section breakdown, charts, logged data
+
+**Key files:**
+- `src/lib/calculations.ts` — All calculation logic: `calculatePlan()`, `calculateTestResults()`, `sectionsFromPivot()`, DU formula (1−CV)
+- `src/lib/store.ts` — Zustand store: irrigatorType, systemParams, plan, volumes, sections, pivotSections, operationData
+- `src/components/layout/AppLayout.tsx` — Shared layout with progress bar (accepts step + totalSteps)
+
+**Centre Pivot flow (6 steps, /setup → /plan → /operation → /data → /results):**
+- Auto-calculates 3 sections from pivot length: Section A (inner ¼, excluded), Section B (mid ½, ~21m spacing), Section C (outer ¼, ~11m spacing), End Gun (3 buckets at 5m if present)
+- Reference: 590m pivot → 15+14+3 = 32 buckets, DU≈0.63
+
+**Other irrigator types (5 steps, no /operation):** Lateral Move, K-Line/Pods, Travelling Gun, Solid Set/Fixed, Boom Spray
+
+**DU thresholds:** ≥80% Pass, 65–79% Attention, <65% Fail
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

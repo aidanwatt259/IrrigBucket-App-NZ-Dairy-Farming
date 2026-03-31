@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import SystemSetup from "@/pages/SystemSetup";
 import TestPlan from "@/pages/TestPlan";
+import Operation from "@/pages/Operation";
 import DataEntry from "@/pages/DataEntry";
 import Results from "@/pages/Results";
 
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/setup" component={SystemSetup} />
       <Route path="/plan" component={TestPlan} />
+      <Route path="/operation" component={Operation} />
       <Route path="/data" component={DataEntry} />
       <Route path="/results" component={Results} />
       <Route component={NotFound} />

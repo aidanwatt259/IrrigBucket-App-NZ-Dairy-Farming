@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import { calculatePlan, SystemParams, Plan, SectionDefinition, PivotSection, sectionsFromPivot } from './calculations';
+import {
+  calculatePlan, SystemParams, Plan,
+  SectionDefinition, PivotSection,
+  OperationData, sectionsFromPivot,
+} from './calculations';
 
 interface AppState {
   irrigatorType: string | null;
@@ -10,6 +14,7 @@ interface AppState {
   testDate: string;
   sections: SectionDefinition[];
   pivotSections: PivotSection[];
+  operationData: OperationData;
 
   setIrrigatorType: (type: string) => void;
   setSystemParams: (params: Partial<SystemParams>) => void;
@@ -18,15 +23,13 @@ interface AppState {
   setVolumesArray: (volumes: number[]) => void;
   setTestConditions: (date: string, wind: number) => void;
   setSections: (sections: SectionDefinition[]) => void;
-  setPivotSections: (pivotSections: PivotSection[]) => void;
+  setPivotSections: (sections: PivotSection[]) => void;
+  setOperationData: (data: Partial<OperationData>) => void;
   commitPivotSetup: (pivotSections: PivotSection[]) => void;
   reset: () => void;
 }
 
-const defaultParams: SystemParams = {
-  diameter: 250,
-  targetDepth: 15,
-};
+const defaultParams: SystemParams = { diameter: 250, targetDepth: 15 };
 
 export const useAppStore = create<AppState>((set, get) => ({
   irrigatorType: null,
@@ -37,6 +40,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   testDate: new Date().toISOString().split('T')[0],
   sections: [],
   pivotSections: [],
+  operationData: {},
 
   setIrrigatorType: (type) => set({ irrigatorType: type }),
 
@@ -58,9 +62,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setVolume: (index, volume) => set((state) => {
-    const newVolumes = [...state.volumes];
-    newVolumes[index] = volume;
-    return { volumes: newVolumes };
+    const v = [...state.volumes];
+    v[index] = volume;
+    return { volumes: v };
   }),
 
   setVolumesArray: (volumes) => set({ volumes }),
@@ -71,10 +75,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setPivotSections: (pivotSections) => set({ pivotSections }),
 
-  // Called when user confirms the editable pivot setup and moves to data entry.
-  // Updates volumes count and auto-populates SectionDefinitions.
+  setOperationData: (data) => set((state) => ({
+    operationData: { ...state.operationData, ...data },
+  })),
+
   commitPivotSetup: (pivotSections) => {
-    const total = pivotSections.reduce((sum, s) => sum + s.buckets, 0);
+    const total = pivotSections
+      .filter(s => !s.isExcluded)
+      .reduce((sum, s) => sum + s.buckets, 0);
     const sections = sectionsFromPivot(pivotSections);
     set({
       pivotSections,
@@ -92,5 +100,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     windSpeed: 0,
     sections: [],
     pivotSections: [],
+    operationData: {},
   }),
 }));

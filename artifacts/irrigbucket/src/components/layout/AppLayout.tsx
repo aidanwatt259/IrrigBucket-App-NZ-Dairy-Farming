@@ -6,18 +6,14 @@ import { Progress } from '@/components/ui/progress';
 interface AppLayoutProps {
   children: React.ReactNode;
   step: number;
+  totalSteps?: number;
   title: string;
   showBack?: boolean;
 }
 
-export function AppLayout({ children, step, title, showBack = true }: AppLayoutProps) {
+export function AppLayout({ children, step, totalSteps = 5, title, showBack = true }: AppLayoutProps) {
   const [, setLocation] = useLocation();
-
-  const handleBack = () => {
-    window.history.back();
-  };
-
-  const progressValue = (step / 5) * 100;
+  const progressValue = (step / totalSteps) * 100;
 
   return (
     <div className="min-h-screen flex flex-col bg-background/90 backdrop-blur-sm">
@@ -26,8 +22,8 @@ export function AppLayout({ children, step, title, showBack = true }: AppLayoutP
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               {showBack && (
-                <button 
-                  onClick={handleBack}
+                <button
+                  onClick={() => window.history.back()}
                   className="p-2 -ml-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Go back"
                 >
@@ -43,14 +39,12 @@ export function AppLayout({ children, step, title, showBack = true }: AppLayoutP
                 </span>
               </div>
             </div>
-            
             <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-muted-foreground">
-                Step {step} of 5
+                Step {step} of {totalSteps}
               </span>
             </div>
           </div>
-          
           <div className="pb-4">
             <Progress value={progressValue} className="h-2" />
           </div>
@@ -63,7 +57,6 @@ export function AppLayout({ children, step, title, showBack = true }: AppLayoutP
             {title}
           </h1>
         </div>
-        
         {children}
       </main>
     </div>
