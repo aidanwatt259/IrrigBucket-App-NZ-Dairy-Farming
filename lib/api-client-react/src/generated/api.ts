@@ -17,14 +17,21 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminReportListEnvelope,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  HelpRequestEnvelope,
+  HelpRequestInput,
+  HelpRequestListEnvelope,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
+  ReportEnvelope,
+  ReportListEnvelope,
+  SaveReportRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -634,4 +641,572 @@ export const useLogoutMobileSession = <
   TContext
 > => {
   return useMutation(getLogoutMobileSessionMutationOptions(options));
+};
+
+/**
+ * @summary Save an irrigation test report
+ */
+export const getSaveReportUrl = () => {
+  return `/api/reports`;
+};
+
+export const saveReport = async (
+  saveReportRequest: SaveReportRequest,
+  options?: RequestInit,
+): Promise<ReportEnvelope> => {
+  return customFetch<ReportEnvelope>(getSaveReportUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveReportRequest),
+  });
+};
+
+export const getSaveReportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveReport>>,
+    TError,
+    { data: BodyType<SaveReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveReport>>,
+  TError,
+  { data: BodyType<SaveReportRequest> },
+  TContext
+> => {
+  const mutationKey = ["saveReport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveReport>>,
+    { data: BodyType<SaveReportRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveReport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveReportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveReport>>
+>;
+export type SaveReportMutationBody = BodyType<SaveReportRequest>;
+export type SaveReportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save an irrigation test report
+ */
+export const useSaveReport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveReport>>,
+    TError,
+    { data: BodyType<SaveReportRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveReport>>,
+  TError,
+  { data: BodyType<SaveReportRequest> },
+  TContext
+> => {
+  return useMutation(getSaveReportMutationOptions(options));
+};
+
+/**
+ * @summary Get reports for the authenticated user
+ */
+export const getGetMyReportsUrl = () => {
+  return `/api/reports`;
+};
+
+export const getMyReports = async (
+  options?: RequestInit,
+): Promise<ReportListEnvelope> => {
+  return customFetch<ReportListEnvelope>(getGetMyReportsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyReportsQueryKey = () => {
+  return [`/api/reports`] as const;
+};
+
+export const getGetMyReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyReports>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyReportsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyReports>>> = ({
+    signal,
+  }) => getMyReports({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReports>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyReports>>
+>;
+export type GetMyReportsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get reports for the authenticated user
+ */
+
+export function useGetMyReports<
+  TData = Awaited<ReturnType<typeof getMyReports>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyReportsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single report by ID
+ */
+export const getGetReportByIdUrl = (id: string) => {
+  return `/api/reports/${id}`;
+};
+
+export const getReportById = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ReportEnvelope> => {
+  return customFetch<ReportEnvelope>(getGetReportByIdUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReportByIdQueryKey = (id: string) => {
+  return [`/api/reports/${id}`] as const;
+};
+
+export const getGetReportByIdQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReportById>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReportById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReportByIdQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getReportById>>> = ({
+    signal,
+  }) => getReportById(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReportById>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReportByIdQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReportById>>
+>;
+export type GetReportByIdQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get a single report by ID
+ */
+
+export function useGetReportById<
+  TData = Awaited<ReturnType<typeof getReportById>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReportById>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReportByIdQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get all reports (admin only)
+ */
+export const getAdminGetAllReportsUrl = () => {
+  return `/api/admin/reports`;
+};
+
+export const adminGetAllReports = async (
+  options?: RequestInit,
+): Promise<AdminReportListEnvelope> => {
+  return customFetch<AdminReportListEnvelope>(getAdminGetAllReportsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetAllReportsQueryKey = () => {
+  return [`/api/admin/reports`] as const;
+};
+
+export const getAdminGetAllReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetAllReports>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAllReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetAllReportsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetAllReports>>
+  > = ({ signal }) => adminGetAllReports({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAllReports>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetAllReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetAllReports>>
+>;
+export type AdminGetAllReportsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get all reports (admin only)
+ */
+
+export function useAdminGetAllReports<
+  TData = Awaited<ReturnType<typeof adminGetAllReports>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetAllReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetAllReportsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a help request (can't find report)
+ */
+export const getSubmitHelpRequestUrl = () => {
+  return `/api/help-requests`;
+};
+
+export const submitHelpRequest = async (
+  helpRequestInput: HelpRequestInput,
+  options?: RequestInit,
+): Promise<HelpRequestEnvelope> => {
+  return customFetch<HelpRequestEnvelope>(getSubmitHelpRequestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(helpRequestInput),
+  });
+};
+
+export const getSubmitHelpRequestMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitHelpRequest>>,
+    TError,
+    { data: BodyType<HelpRequestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitHelpRequest>>,
+  TError,
+  { data: BodyType<HelpRequestInput> },
+  TContext
+> => {
+  const mutationKey = ["submitHelpRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitHelpRequest>>,
+    { data: BodyType<HelpRequestInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitHelpRequest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitHelpRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitHelpRequest>>
+>;
+export type SubmitHelpRequestMutationBody = BodyType<HelpRequestInput>;
+export type SubmitHelpRequestMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Submit a help request (can't find report)
+ */
+export const useSubmitHelpRequest = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitHelpRequest>>,
+    TError,
+    { data: BodyType<HelpRequestInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitHelpRequest>>,
+  TError,
+  { data: BodyType<HelpRequestInput> },
+  TContext
+> => {
+  return useMutation(getSubmitHelpRequestMutationOptions(options));
+};
+
+/**
+ * @summary Get all help requests (admin only)
+ */
+export const getAdminGetHelpRequestsUrl = () => {
+  return `/api/admin/help-requests`;
+};
+
+export const adminGetHelpRequests = async (
+  options?: RequestInit,
+): Promise<HelpRequestListEnvelope> => {
+  return customFetch<HelpRequestListEnvelope>(getAdminGetHelpRequestsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetHelpRequestsQueryKey = () => {
+  return [`/api/admin/help-requests`] as const;
+};
+
+export const getAdminGetHelpRequestsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetHelpRequests>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetHelpRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetHelpRequestsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetHelpRequests>>
+  > = ({ signal }) => adminGetHelpRequests({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetHelpRequests>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetHelpRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetHelpRequests>>
+>;
+export type AdminGetHelpRequestsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get all help requests (admin only)
+ */
+
+export function useAdminGetHelpRequests<
+  TData = Awaited<ReturnType<typeof adminGetHelpRequests>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetHelpRequests>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetHelpRequestsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a help request as resolved (admin only)
+ */
+export const getAdminResolveHelpRequestUrl = (id: string) => {
+  return `/api/admin/help-requests/${id}/resolve`;
+};
+
+export const adminResolveHelpRequest = async (
+  id: string,
+  options?: RequestInit,
+): Promise<HelpRequestEnvelope> => {
+  return customFetch<HelpRequestEnvelope>(getAdminResolveHelpRequestUrl(id), {
+    ...options,
+    method: "PATCH",
+  });
+};
+
+export const getAdminResolveHelpRequestMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminResolveHelpRequest>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminResolveHelpRequest>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["adminResolveHelpRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminResolveHelpRequest>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminResolveHelpRequest(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminResolveHelpRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminResolveHelpRequest>>
+>;
+
+export type AdminResolveHelpRequestMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Mark a help request as resolved (admin only)
+ */
+export const useAdminResolveHelpRequest = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminResolveHelpRequest>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminResolveHelpRequest>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getAdminResolveHelpRequestMutationOptions(options));
 };

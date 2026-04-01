@@ -98,3 +98,175 @@ export const LogoutMobileSessionHeader = zod.object({
 export const LogoutMobileSessionResponse = zod.object({
   success: zod.boolean(),
 });
+
+/**
+ * @summary Save an irrigation test report
+ */
+export const SaveReportHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const SaveReportBody = zod.object({
+  irrigatorType: zod.string().nullish(),
+  farmName: zod.string().nullish(),
+  assessorName: zod.string().nullish(),
+  testDate: zod.string().nullish(),
+  duPercent: zod.string().nullish(),
+  duStatus: zod.string().nullish(),
+  reportData: zod.record(zod.string(), zod.unknown()),
+});
+
+/**
+ * @summary Get reports for the authenticated user
+ */
+export const GetMyReportsHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetMyReportsResponse = zod.object({
+  reports: zod.array(
+    zod.object({
+      id: zod.string(),
+      userId: zod.string().nullish(),
+      irrigatorType: zod.string().nullish(),
+      farmName: zod.string().nullish(),
+      assessorName: zod.string().nullish(),
+      testDate: zod.string().nullish(),
+      duPercent: zod.string().nullish(),
+      duStatus: zod.string().nullish(),
+      reportData: zod.record(zod.string(), zod.unknown()),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a single report by ID
+ */
+export const GetReportByIdParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetReportByIdHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetReportByIdResponse = zod.object({
+  report: zod.object({
+    id: zod.string(),
+    userId: zod.string().nullish(),
+    irrigatorType: zod.string().nullish(),
+    farmName: zod.string().nullish(),
+    assessorName: zod.string().nullish(),
+    testDate: zod.string().nullish(),
+    duPercent: zod.string().nullish(),
+    duStatus: zod.string().nullish(),
+    reportData: zod.record(zod.string(), zod.unknown()),
+    createdAt: zod.string(),
+  }),
+});
+
+/**
+ * @summary Get all reports (admin only)
+ */
+export const AdminGetAllReportsHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const AdminGetAllReportsResponse = zod.object({
+  reports: zod.array(
+    zod.object({
+      id: zod.string(),
+      userId: zod.string().nullish(),
+      userEmail: zod.string().nullish(),
+      userName: zod.string().nullish(),
+      irrigatorType: zod.string().nullish(),
+      farmName: zod.string().nullish(),
+      assessorName: zod.string().nullish(),
+      testDate: zod.string().nullish(),
+      duPercent: zod.string().nullish(),
+      duStatus: zod.string().nullish(),
+      reportData: zod.record(zod.string(), zod.unknown()),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Submit a help request (can't find report)
+ */
+export const SubmitHelpRequestHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const SubmitHelpRequestBody = zod.object({
+  description: zod.string().min(1),
+  contactInfo: zod.string().nullish(),
+});
+
+/**
+ * @summary Get all help requests (admin only)
+ */
+export const AdminGetHelpRequestsHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const AdminGetHelpRequestsResponse = zod.object({
+  helpRequests: zod.array(
+    zod.object({
+      id: zod.string(),
+      userId: zod.string().nullish(),
+      userEmail: zod.string().nullish(),
+      userName: zod.string().nullish(),
+      description: zod.string(),
+      contactInfo: zod.string().nullish(),
+      resolved: zod.boolean(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Mark a help request as resolved (admin only)
+ */
+export const AdminResolveHelpRequestParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminResolveHelpRequestHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const AdminResolveHelpRequestResponse = zod.object({
+  helpRequest: zod.object({
+    id: zod.string(),
+    userId: zod.string().nullish(),
+    userEmail: zod.string().nullish(),
+    userName: zod.string().nullish(),
+    description: zod.string(),
+    contactInfo: zod.string().nullish(),
+    resolved: zod.boolean(),
+    createdAt: zod.string(),
+  }),
+});

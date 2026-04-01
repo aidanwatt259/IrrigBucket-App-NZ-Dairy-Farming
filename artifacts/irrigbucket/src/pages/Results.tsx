@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { saveReport } from '@/lib/savedReports';
+import { useAuth } from '@workspace/replit-auth-web';
 
 // Section colour palette for the bar chart
 const SECTION_BAR_COLORS: Record<string, string> = {
@@ -49,6 +50,7 @@ export default function Results() {
     sections, irrigatorType, operationData, reset,
   } = useAppStore();
   const savedRef = useRef(false);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -62,9 +64,37 @@ export default function Results() {
   useEffect(() => {
     if (plan && results && volumes.some(v => v > 0) && !savedRef.current) {
       savedRef.current = true;
-      saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
+      const saved = saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
+
+      if (isAuthenticated) {
+        fetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            irrigatorType: irrigatorType ?? null,
+            farmName: operationData.farmName ?? null,
+            assessorName: operationData.assessorName ?? null,
+            testDate: testDate || null,
+            duPercent: (results.du * 100).toFixed(1),
+            duStatus: results.duStatus,
+            reportData: {
+              id: saved.id,
+              savedAt: saved.savedAt,
+              irrigatorType,
+              systemParams,
+              plan,
+              volumes,
+              windSpeed,
+              testDate,
+              sections,
+              operationData,
+            },
+          }),
+        }).catch(() => {});
+      }
     }
-  }, [plan, results]);
+  }, [plan, results, isAuthenticated]);
 
   if (!plan || !results) return null;
 

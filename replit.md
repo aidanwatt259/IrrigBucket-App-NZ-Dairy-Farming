@@ -108,7 +108,22 @@ Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucke
 - `/plan` — TestPlan: view/edit bucket test plan
 - `/operation` — Operation (Centre Pivot only, Step 4/6): record machine operational data
 - `/data` — DataEntry: enter bucket volumes (grouped by section for pivot)
-- `/results` — Results: DU calculation, section breakdown, charts, logged data
+- `/results` — Results: DU calculation, section breakdown, charts, logged data. Auto-saves to localStorage and syncs to server DB if authenticated.
+- `/reports/:id` — SavedReport: view a saved report with Download PDF button (browser print)
+- `/admin` — Admin panel: view all user reports and help requests. Requires `ADMIN_USER_ID` env var in production; any authenticated user in development.
+
+**Server-side report storage:**
+- When user is logged in, reports are saved to the `reports` DB table (POST /api/reports) in addition to localStorage
+- GET /api/reports returns the authenticated user's reports; cloud-only reports shown with a cloud icon in the SideMenu
+
+**Help requests ("Can't find report"):**
+- SideMenu has a "Can't find your report?" link that expands an inline form
+- Submits to POST /api/help-requests (no auth required)
+- Admin panel shows all open/resolved help requests with a "Resolve" button
+
+**Admin access setup:**
+- Set `ADMIN_USER_ID` environment variable to your Replit user ID (visible on the /admin page if access is denied)
+- In development, all authenticated users have admin access
 
 **Offline / PWA:**
 - `vite-plugin-pwa` generates a service worker that pre-caches all app assets at first load (active in production builds only; dev mode uses in-memory). Once cached, the full app runs without any internet connection.

@@ -51,6 +51,114 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type SaveReportRequestReportData = { [key: string]: unknown };
+
+export interface SaveReportRequest {
+  /** @nullable */
+  irrigatorType?: string | null;
+  /** @nullable */
+  farmName?: string | null;
+  /** @nullable */
+  assessorName?: string | null;
+  /** @nullable */
+  testDate?: string | null;
+  /** @nullable */
+  duPercent?: string | null;
+  /** @nullable */
+  duStatus?: string | null;
+  reportData: SaveReportRequestReportData;
+}
+
+export type ReportRecordReportData = { [key: string]: unknown };
+
+export interface ReportRecord {
+  id: string;
+  /** @nullable */
+  userId?: string | null;
+  /** @nullable */
+  irrigatorType?: string | null;
+  /** @nullable */
+  farmName?: string | null;
+  /** @nullable */
+  assessorName?: string | null;
+  /** @nullable */
+  testDate?: string | null;
+  /** @nullable */
+  duPercent?: string | null;
+  /** @nullable */
+  duStatus?: string | null;
+  reportData: ReportRecordReportData;
+  createdAt: string;
+}
+
+export interface ReportEnvelope {
+  report: ReportRecord;
+}
+
+export interface ReportListEnvelope {
+  reports: ReportRecord[];
+}
+
+export type AdminReportRecordReportData = { [key: string]: unknown };
+
+export interface AdminReportRecord {
+  id: string;
+  /** @nullable */
+  userId?: string | null;
+  /** @nullable */
+  userEmail?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  /** @nullable */
+  irrigatorType?: string | null;
+  /** @nullable */
+  farmName?: string | null;
+  /** @nullable */
+  assessorName?: string | null;
+  /** @nullable */
+  testDate?: string | null;
+  /** @nullable */
+  duPercent?: string | null;
+  /** @nullable */
+  duStatus?: string | null;
+  reportData: AdminReportRecordReportData;
+  createdAt: string;
+}
+
+export interface AdminReportListEnvelope {
+  reports: AdminReportRecord[];
+}
+
+export interface HelpRequestInput {
+  /** @minLength 1 */
+  description: string;
+  /** @nullable */
+  contactInfo?: string | null;
+}
+
+export interface HelpRequestRecord {
+  id: string;
+  /** @nullable */
+  userId?: string | null;
+  /** @nullable */
+  userEmail?: string | null;
+  /** @nullable */
+  userName?: string | null;
+  description: string;
+  /** @nullable */
+  contactInfo?: string | null;
+  resolved: boolean;
+  createdAt: string;
+}
+
+export interface HelpRequestEnvelope {
+  helpRequest: HelpRequestRecord;
+}
+
+export interface HelpRequestListEnvelope {
+  helpRequests: HelpRequestRecord[];
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

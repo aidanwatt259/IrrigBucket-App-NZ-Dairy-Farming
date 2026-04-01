@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { motion } from 'framer-motion';
-import { ArrowLeft, AlertTriangle, CheckCircle, Info, Wind, Droplet, Menu, Trash2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle, Info, Wind, Droplet, Menu, Trash2, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import { calculateTestResults, populationStdDev } from '@/lib/calculations';
 import { getReportById, deleteReport, getReportLabel, SavedReport as SavedReportType } from '@/lib/savedReports';
@@ -141,15 +141,26 @@ export default function SavedReport() {
                 </span>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-destructive gap-1.5"
-              onClick={handleDelete}
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete</span>
-            </Button>
+            <div className="flex items-center gap-1 no-print">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground gap-1.5"
+                onClick={() => window.print()}
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Download PDF</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive gap-1.5"
+                onClick={handleDelete}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            </div>
           </div>
           <div className="pb-4">
             <Progress value={100} className="h-2" />
@@ -397,10 +408,14 @@ export default function SavedReport() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-4 pt-2">
+          <div className="flex gap-4 pt-2 no-print">
             <Button variant="outline" size="lg" className="flex-1" onClick={() => setLocation('/')}>
               <ArrowLeft className="w-5 h-5 mr-2" />
               Back to Home
+            </Button>
+            <Button size="lg" className="flex-1" onClick={() => window.print()}>
+              <Printer className="w-5 h-5 mr-2" />
+              Download PDF
             </Button>
           </div>
         </motion.div>

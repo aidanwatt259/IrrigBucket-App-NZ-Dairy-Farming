@@ -12,6 +12,12 @@ tags:
     description: Health operations
   - name: Auth
     description: Browser and mobile authentication endpoints.
+  - name: Reports
+    description: Irrigation test report storage and retrieval.
+  - name: Admin
+    description: Admin-only endpoints.
+  - name: HelpRequests
+    description: User help request endpoints.
 paths:
   /healthz:
     get:
@@ -142,6 +148,198 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutSuccess'
+  /reports:
+    post:
+      tags: [Reports]
+      operationId: saveReport
+      summary: Save an irrigation test report
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveReportRequest'
+      responses:
+        '201':
+          description: Report saved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportEnvelope'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    get:
+      tags: [Reports]
+      operationId: getMyReports
+      summary: Get reports for the authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: List of reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportListEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /reports/{id}:
+    get:
+      tags: [Reports]
+      operationId: getReportById
+      summary: Get a single report by ID
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportEnvelope'
+        '404':
+          description: Report not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/reports:
+    get:
+      tags: [Admin]
+      operationId: adminGetAllReports
+      summary: Get all reports (admin only)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: List of all reports.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportListEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Admin access required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /help-requests:
+    post:
+      tags: [HelpRequests]
+      operationId: submitHelpRequest
+      summary: Submit a help request (can't find report)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HelpRequestInput'
+      responses:
+        '201':
+          description: Help request submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpRequestEnvelope'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/help-requests:
+    get:
+      tags: [Admin]
+      operationId: adminGetHelpRequests
+      summary: Get all help requests (admin only)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: List of help requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpRequestListEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Admin access required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /admin/help-requests/{id}/resolve:
+    patch:
+      tags: [Admin]
+      operationId: adminResolveHelpRequest
+      summary: Mark a help request as resolved (admin only)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Help request resolved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpRequestEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Admin access required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Help request not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -228,3 +426,141 @@ components:
       properties:
         error:
           type: string
+    SaveReportRequest:
+      type: object
+      required: [reportData]
+      properties:
+        irrigatorType:
+          type: [string, 'null']
+        farmName:
+          type: [string, 'null']
+        assessorName:
+          type: [string, 'null']
+        testDate:
+          type: [string, 'null']
+        duPercent:
+          type: [string, 'null']
+        duStatus:
+          type: [string, 'null']
+        reportData:
+          type: object
+          additionalProperties: true
+    ReportRecord:
+      type: object
+      required: [id, createdAt, reportData]
+      properties:
+        id:
+          type: string
+        userId:
+          type: [string, 'null']
+        irrigatorType:
+          type: [string, 'null']
+        farmName:
+          type: [string, 'null']
+        assessorName:
+          type: [string, 'null']
+        testDate:
+          type: [string, 'null']
+        duPercent:
+          type: [string, 'null']
+        duStatus:
+          type: [string, 'null']
+        reportData:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+    ReportEnvelope:
+      type: object
+      required: [report]
+      properties:
+        report:
+          $ref: '#/components/schemas/ReportRecord'
+    ReportListEnvelope:
+      type: object
+      required: [reports]
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportRecord'
+    AdminReportRecord:
+      type: object
+      required: [id, createdAt, reportData]
+      properties:
+        id:
+          type: string
+        userId:
+          type: [string, 'null']
+        userEmail:
+          type: [string, 'null']
+        userName:
+          type: [string, 'null']
+        irrigatorType:
+          type: [string, 'null']
+        farmName:
+          type: [string, 'null']
+        assessorName:
+          type: [string, 'null']
+        testDate:
+          type: [string, 'null']
+        duPercent:
+          type: [string, 'null']
+        duStatus:
+          type: [string, 'null']
+        reportData:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+    AdminReportListEnvelope:
+      type: object
+      required: [reports]
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReportRecord'
+    HelpRequestInput:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+          minLength: 1
+        contactInfo:
+          type: [string, 'null']
+    HelpRequestRecord:
+      type: object
+      required: [id, description, resolved, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: [string, 'null']
+        userEmail:
+          type: [string, 'null']
+        userName:
+          type: [string, 'null']
+        description:
+          type: string
+        contactInfo:
+          type: [string, 'null']
+        resolved:
+          type: boolean
+        createdAt:
+          type: string
+    HelpRequestEnvelope:
+      type: object
+      required: [helpRequest]
+      properties:
+        helpRequest:
+          $ref: '#/components/schemas/HelpRequestRecord'
+    HelpRequestListEnvelope:
+      type: object
+      required: [helpRequests]
+      properties:
+        helpRequests:
+          type: array
+          items:
+            $ref: '#/components/schemas/HelpRequestRecord'

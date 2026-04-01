@@ -164,3 +164,73 @@
     -moz-appearance: textfield;
   }
 }
+
+@media print {
+  @page {
+    margin: 1.5cm 1.5cm 1.5cm 1.5cm;
+    size: A4 portrait;
+  }
+
+  body {
+    background-image: none !important;
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+
+  /* Hide navigation chrome */
+  .no-print,
+  header .no-print,
+  [data-radial-progress],
+  [role="progressbar"] {
+    display: none !important;
+  }
+
+  /* Hide the sticky header entirely when printing */
+  header {
+    position: static !important;
+    box-shadow: none !important;
+    border-bottom: 1pt solid #e2e8f0 !important;
+    break-after: avoid;
+  }
+
+  /* Show only header branding, hide all buttons */
+  header button,
+  header a[role="button"] {
+    display: none !important;
+  }
+
+  /* Hide the progress bar */
+  [data-slot="progress"],
+  .h-2 {
+    display: none !important;
+  }
+
+  main {
+    padding-top: 0.5cm !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Cards print cleanly */
+  .card,
+  [data-slot="card"] {
+    box-shadow: none !important;
+    border: 1pt solid #e2e8f0 !important;
+    break-inside: avoid;
+  }
+
+  /* Charts — let recharts render */
+  .recharts-wrapper,
+  .recharts-surface {
+    overflow: visible !important;
+  }
+
+  /* Page break hints */
+  h3 {
+    break-after: avoid;
+  }
+
+  table {
+    break-inside: avoid;
+  }
+}

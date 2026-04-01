@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminReportListEnvelope";
+export * from "./adminReportRecord";
+export * from "./adminReportRecordReportData";
 export * from "./authorizationSessionHeaderParameter";
 export * from "./authUser";
 export * from "./authUserEnvelope";
@@ -13,6 +16,16 @@ export * from "./beginBrowserLoginParams";
 export * from "./errorEnvelope";
 export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";
+export * from "./helpRequestEnvelope";
+export * from "./helpRequestInput";
+export * from "./helpRequestListEnvelope";
+export * from "./helpRequestRecord";
 export * from "./logoutSuccess";
 export * from "./mobileTokenExchangeRequest";
 export * from "./mobileTokenExchangeSuccess";
+export * from "./reportEnvelope";
+export * from "./reportListEnvelope";
+export * from "./reportRecord";
+export * from "./reportRecordReportData";
+export * from "./saveReportRequest";
+export * from "./saveReportRequestReportData";
