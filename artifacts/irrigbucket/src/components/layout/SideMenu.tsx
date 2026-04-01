@@ -135,7 +135,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="left" className="w-80 sm:w-96 p-0 flex flex-col">
+      <SheetContent side="right" className="w-80 sm:w-96 p-0 flex flex-col">
         <SheetHeader className="px-6 py-5 border-b border-border/50">
           <SheetTitle className="text-lg font-display font-bold flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary" />
