@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -27,3 +27,6 @@ timeoutMs = 20000
 
 [objectStorage]
 defaultBucketID = "replit-objstore-3dff5f3e-5bc6-4b37-8118-45ace243c9df"
+
+[nix]
+channel = "stable-25_05"
