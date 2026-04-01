@@ -82,16 +82,35 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <button
-        onClick={() => setMenuOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-border/50 text-muted-foreground hover:text-foreground hover:bg-white transition-colors"
-        aria-label="Open menu"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+
+      {/* ── Sticky Header ─────────────────────────────────── */}
+      <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-border/50 shadow-sm">
+        <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo — left */}
+            <div className="flex items-center gap-2">
+              <div className="bg-primary/10 p-2 rounded-xl text-primary">
+                <Droplet className="w-5 h-5 fill-primary" />
+              </div>
+              <span className="font-display font-bold text-xl tracking-tight text-foreground">
+                Irrig<span className="text-primary">Bucket</span>
+              </span>
+            </div>
+            {/* Hamburger — right */}
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
       {/* Hero Section */}
-      <div className="relative pt-20 pb-16 sm:pt-32 sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
+      <div className="relative pt-16 pb-16 sm:pt-24 sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
