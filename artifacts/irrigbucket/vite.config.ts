@@ -42,8 +42,8 @@ export default defineConfig({
               registerType: "autoUpdate",
               includeAssets: ["favicon.svg", "pwa-192x192.png", "pwa-512x512.png"],
               manifest: {
-                name: "IrrigBucket",
-                short_name: "IrrigBucket",
+                name: "IrriBucket",
+                short_name: "IrriBucket",
                 description: "Irrigation bucket test app for NZ dairy farmers",
                 theme_color: "#16a34a",
                 background_color: "#f9fafb",
