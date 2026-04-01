@@ -92,7 +92,8 @@ router.get("/auth/user", (req: Request, res: Response) => {
 
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const origin = getOrigin(req);
+  const callbackUrl = `${origin}/auth-callback`;
 
   const returnTo = getSafeReturnTo(req.query.returnTo);
 
@@ -185,6 +186,84 @@ router.get("/callback", async (req: Request, res: Response) => {
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
   res.redirect(returnTo);
+});
+
+// Called by the frontend AuthCallback component after Replit OIDC redirects
+// to /auth-callback (a frontend route). Cookies set by /api/login are still
+// present so we can complete the PKCE exchange server-side.
+router.get("/login-complete", async (req: Request, res: Response) => {
+  const config = await getOidcConfig();
+  const origin = getOrigin(req);
+  const redirectUri = `${origin}/auth-callback`;
+
+  const codeVerifier = req.cookies?.code_verifier;
+  const nonce = req.cookies?.nonce;
+  const expectedState = req.cookies?.state;
+  const returnTo = getSafeReturnTo(req.cookies?.return_to);
+
+  if (!codeVerifier || !expectedState) {
+    res.status(400).json({ error: "Missing OIDC session cookies" });
+    return;
+  }
+
+  const code = req.query.code as string | undefined;
+  const state = req.query.state as string | undefined;
+  const iss = req.query.iss as string | undefined;
+
+  if (!code || !state) {
+    res.status(400).json({ error: "Missing code or state" });
+    return;
+  }
+
+  const callbackUrl = new URL(redirectUri);
+  callbackUrl.searchParams.set("code", code);
+  callbackUrl.searchParams.set("state", state);
+  if (iss) callbackUrl.searchParams.set("iss", iss);
+
+  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
+  try {
+    tokens = await oidc.authorizationCodeGrant(config, callbackUrl, {
+      pkceCodeVerifier: codeVerifier,
+      expectedNonce: nonce,
+      expectedState,
+      idTokenExpected: true,
+    });
+  } catch (err) {
+    req.log.error({ err }, "login-complete token exchange failed");
+    res.status(401).json({ error: "Token exchange failed" });
+    return;
+  }
+
+  res.clearCookie("code_verifier", { path: "/" });
+  res.clearCookie("nonce", { path: "/" });
+  res.clearCookie("state", { path: "/" });
+  res.clearCookie("return_to", { path: "/" });
+
+  const claims = tokens.claims();
+  if (!claims) {
+    res.status(401).json({ error: "No claims in ID token" });
+    return;
+  }
+
+  const dbUser = await upsertUser(claims as unknown as Record<string, unknown>);
+
+  const now = Math.floor(Date.now() / 1000);
+  const sessionData: SessionData = {
+    user: {
+      id: dbUser.id,
+      email: dbUser.email,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      profileImageUrl: dbUser.profileImageUrl,
+    },
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+  };
+
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+  res.json({ success: true, returnTo });
 });
 
 router.get("/logout", async (req: Request, res: Response) => {

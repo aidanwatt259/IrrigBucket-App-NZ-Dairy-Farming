@@ -13,6 +13,7 @@ import DataEntry from "@/pages/DataEntry";
 import Results from "@/pages/Results";
 import SavedReport from "@/pages/SavedReport";
 import Admin from "@/pages/Admin";
+import AuthCallback from "@/pages/AuthCallback";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/auth-callback" component={AuthCallback} />
       <Route path="/setup" component={SystemSetup} />
       <Route path="/plan" component={TestPlan} />
       <Route path="/operation" component={Operation} />
