@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db, reportsTable, helpRequestsTable, usersTable } from "@workspace/db";
+import { db, reportsTable, helpRequestsTable, feedbackTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { isAdmin } from "./reports";
 
@@ -98,6 +98,35 @@ router.patch("/admin/help-requests/:id/resolve", requireAdmin, async (req, res) 
       userName: null,
       createdAt: updated.createdAt.toISOString(),
     },
+  });
+});
+
+router.get("/admin/feedback", requireAdmin, async (_req, res) => {
+  const rows = await db
+    .select({
+      id: feedbackTable.id,
+      userId: feedbackTable.userId,
+      message: feedbackTable.message,
+      contactInfo: feedbackTable.contactInfo,
+      createdAt: feedbackTable.createdAt,
+      userEmail: usersTable.email,
+      firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
+    })
+    .from(feedbackTable)
+    .leftJoin(usersTable, eq(feedbackTable.userId, usersTable.id))
+    .orderBy(desc(feedbackTable.createdAt));
+
+  res.json({
+    feedback: rows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      message: r.message,
+      contactInfo: r.contactInfo,
+      userEmail: r.userEmail ?? null,
+      userName: [r.firstName, r.lastName].filter(Boolean).join(" ") || null,
+      createdAt: r.createdAt.toISOString(),
+    })),
   });
 });
 
