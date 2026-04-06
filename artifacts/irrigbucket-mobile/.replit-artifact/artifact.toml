@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/irrigbucket-mobile/"
+title = "IrrigBucket Mobile"
+version = "1.0.0"
+id = "artifacts/irrigbucket-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/irrigbucket-mobile/" ]
+localPort = 25382
+
+[services.development]
+run = "pnpm --filter @workspace/irrigbucket-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/irrigbucket-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/irrigbucket-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "25382"
+BASE_PATH = "/irrigbucket-mobile/"

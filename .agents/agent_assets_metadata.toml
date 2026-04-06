@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "Wmzs1DYXUh3gddvOP9SPe"
+uri = "file://artifacts/irrigbucket-mobile/assets/images/icon.png"
+type = "image"
+title = "irrigbucket app icon"
