@@ -2,6 +2,7 @@
   "expo": {
     "name": "IrrigBucket Mobile",
     "slug": "irrigbucket-mobile",
+    "owner": "your-expo-username",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,12 +12,21 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#fafaf5"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "nz.irrigbucket.app"
     },
-    "android": {},
+    "android": {
+      "package": "nz.irrigbucket.app",
+      "versionCode": 1,
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#fafaf5"
+      }
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
