@@ -77,3 +77,7 @@ The app installs like any Play Store app and appears in the app drawer as **Irri
 - Each build is logged at [expo.dev/accounts/your-username/projects/irrigbucket-mobile](https://expo.dev)
 - To bump the app version, increase `version` and `android.versionCode` in `app.json` before running the next build
 - Always run build commands from the **monorepo root**, not from inside `artifacts/irrigbucket-mobile`
+
+## Monorepo setup (already configured)
+
+The workspace root `.npmrc` contains `node-linker=hoisted`. This is required for Expo + pnpm workspaces — it installs all packages into a flat `node_modules/` at the repo root so EAS can resolve `expo`, `expo-router`, and other packages when it compiles the app in the cloud. If you ever reinstall or change pnpm settings, make sure this line is still present.
