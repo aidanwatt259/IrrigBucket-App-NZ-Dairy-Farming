@@ -1,16 +1,20 @@
 const { getDefaultConfig } = require("@expo/metro-config");
+const { mergeConfig } = require("metro-config");
 const path = require("path");
 
-const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, "../..");
+const workspaceRoot = path.resolve(__dirname, "../..");
 
-const config = getDefaultConfig(projectRoot);
-
-config.watchFolders = [workspaceRoot];
-
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, "node_modules"),
-  path.resolve(workspaceRoot, "node_modules"),
-];
-
-module.exports = config;
+/**
+ * Metro configuration for pnpm monorepo.
+ * watchFolders and nodeModulesPaths let Metro resolve workspace packages.
+ * @type {import('@expo/metro-config').MetroConfig}
+ */
+module.exports = mergeConfig(getDefaultConfig(__dirname), {
+  watchFolders: [workspaceRoot],
+  resolver: {
+    nodeModulesPaths: [
+      path.resolve(__dirname, "node_modules"),
+      path.resolve(workspaceRoot, "node_modules"),
+    ],
+  },
+});
