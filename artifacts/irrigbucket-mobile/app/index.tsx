@@ -34,6 +34,11 @@ export default function HomeScreen() {
   const handleSelect = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIrrigatorType(id);
+  };
+
+  const handleContinue = () => {
+    if (!irrigatorType) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/setup');
   };
 
@@ -67,7 +72,8 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 16 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero */}
@@ -100,7 +106,7 @@ export default function HomeScreen() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: colors.card,
+                    backgroundColor: isSelected ? colors.primary + '08' : colors.card,
                     borderColor: isSelected ? colors.primary : colors.border,
                     borderWidth: isSelected ? 2 : 1.5,
                   },
@@ -127,6 +133,40 @@ export default function HomeScreen() {
           <Text style={[styles.dairyText, { color: colors.foreground }]}>Follows DairyNZ testing protocols</Text>
         </View>
       </ScrollView>
+
+      {/* Fixed bottom bar — Start Test button */}
+      <View style={[
+        styles.bottomBar,
+        {
+          paddingBottom: bottomPad + 12,
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+        }
+      ]}>
+        {!irrigatorType && (
+          <Text style={[styles.bottomHint, { color: colors.mutedForeground }]}>
+            Select an irrigator type above to continue
+          </Text>
+        )}
+        <TouchableOpacity
+          onPress={handleContinue}
+          disabled={!irrigatorType}
+          activeOpacity={0.8}
+          testID="start-test-button"
+          style={[
+            styles.startBtn,
+            {
+              backgroundColor: irrigatorType ? colors.primary : colors.muted,
+              opacity: irrigatorType ? 1 : 0.6,
+            },
+          ]}
+        >
+          <Text style={[styles.startBtnText, { color: irrigatorType ? colors.primaryForeground : colors.mutedForeground }]}>
+            {irrigatorType ? `Start Test — ${IRRIGATOR_TYPES.find(t => t.id === irrigatorType)?.name ?? ''}` : 'Start Test'}
+          </Text>
+          <Feather name="arrow-right" size={18} color={irrigatorType ? colors.primaryForeground : colors.mutedForeground} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -147,6 +187,7 @@ const styles = StyleSheet.create({
   reportsBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
+  scrollView: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 0 },
   hero: {
     alignItems: 'center',
@@ -180,7 +221,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     alignSelf: 'center',
+    marginBottom: 16,
   },
   dairyDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dairyText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    gap: 10,
+  },
+  bottomHint: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+  },
+  startBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 24,
+  },
+  startBtnText: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.2,
+  },
 });

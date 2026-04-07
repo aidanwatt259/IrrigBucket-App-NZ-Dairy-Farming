@@ -51,7 +51,7 @@ export default function ResultsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StepHeader title="Test Results" step={totalSteps} totalSteps={totalSteps} showBack={false} />
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]} showsVerticalScrollIndicator={false}>
 
         {/* Main DU card */}
         <View style={[styles.duCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -165,6 +165,7 @@ export default function ResultsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  scrollView: { flex: 1 },
   scroll: { padding: 20, gap: 16 },
   duCard: { borderRadius: 20, borderWidth: 1.5, padding: 28, alignItems: 'center', gap: 12 },
   duLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', textTransform: 'uppercase', letterSpacing: 0.8 },

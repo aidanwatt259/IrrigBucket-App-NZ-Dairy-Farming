@@ -8,6 +8,7 @@ import {
   Outfit_400Regular,
   Outfit_700Bold,
 } from "@expo-google-fonts/outfit";
+import { Feather } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -42,6 +43,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
+    ...Feather.font,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
