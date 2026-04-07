@@ -4,11 +4,7 @@
     "appVersionSource": "local"
   },
   "build": {
-    "base": {
-      "installCommand": "pnpm install"
-    },
     "development": {
-      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "android": {
@@ -16,14 +12,12 @@
       }
     },
     "preview": {
-      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
-      "extends": "base",
       "android": {
         "buildType": "app-bundle"
       }
