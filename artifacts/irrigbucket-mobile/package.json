@@ -56,6 +56,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@expo-google-fonts/outfit": "^0.4.3"
+    "@expo-google-fonts/outfit": "^0.4.3",
+    "@react-native-community/netinfo": "^11.4.1"
   }
 }
