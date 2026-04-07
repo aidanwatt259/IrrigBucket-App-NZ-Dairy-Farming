@@ -3,13 +3,12 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
-  useFonts as useInterFonts,
 } from "@expo-google-fonts/inter";
 import {
   Outfit_400Regular,
   Outfit_700Bold,
-  useFonts as useOutfitFonts,
 } from "@expo-google-fonts/outfit";
+import { useFonts } from "expo-font";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -42,20 +41,14 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [interLoaded, interError] = useInterFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-  });
-
-  const [outfitLoaded, outfitError] = useOutfitFonts({
     Outfit_400Regular,
     Outfit_700Bold,
   });
-
-  const fontsLoaded = interLoaded && outfitLoaded;
-  const fontError = interError || outfitError;
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
