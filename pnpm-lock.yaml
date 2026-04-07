@@ -445,7 +445,7 @@ importers:
         specifier: ^1.0.2
         version: 1.0.2
       '@tanstack/react-query':
-        specifier: 'catalog:'
+        specifier: ^5.90.21
         version: 5.96.2(react@19.1.0)
       '@types/react':
         specifier: ~19.1.10
@@ -550,7 +550,7 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
       zod:
-        specifier: 'catalog:'
+        specifier: 3.25.76
         version: 3.25.76
       zod-validation-error:
         specifier: ^3.4.0
