@@ -21,25 +21,35 @@ Open `artifacts/irrigbucket-mobile/app.json` and replace the `owner` placeholder
 "owner": "your-expo-username"
 ```
 
-### 3. Log in to EAS
+### 3. Install dependencies from the monorepo root
 
-From the `artifacts/irrigbucket-mobile` directory:
+Make sure all packages are installed. Run this from the **monorepo root** (the folder containing `artifacts/`, `lib/`, `pnpm-workspace.yaml`):
 
 ```bash
-pnpm exec eas login
+pnpm install
+```
+
+### 4. Log in to EAS
+
+Still from the **monorepo root**:
+
+```bash
+pnpm --filter @workspace/irrigbucket-mobile exec eas login
 ```
 
 Enter your Expo credentials when prompted.
 
-### 4. Start the build
+### 5. Start the build
+
+**Important:** Run this from the **monorepo root** — not from inside `artifacts/irrigbucket-mobile`. This is required so EAS can find the `pnpm-lock.yaml` and use pnpm (instead of falling back to npm and installing the wrong package versions).
 
 ```bash
-pnpm exec eas build --platform android --profile preview
+pnpm --filter @workspace/irrigbucket-mobile exec eas build --platform android --profile preview
 ```
 
 EAS will upload the project to Expo's build servers and compile a native APK. The first build takes around 10–15 minutes. When it finishes, EAS prints a download URL.
 
-### 5. Share the APK with testers
+### 6. Share the APK with testers
 
 Copy the download link from the terminal and send it to your testers. They will need to:
 
@@ -66,3 +76,4 @@ The app installs like any Play Store app and appears in the app drawer as **Irri
 - Builds run on Expo's cloud servers — you do not need Android Studio or a local Android SDK
 - Each build is logged at [expo.dev/accounts/your-username/projects/irrigbucket-mobile](https://expo.dev)
 - To bump the app version, increase `version` and `android.versionCode` in `app.json` before running the next build
+- Always run build commands from the **monorepo root**, not from inside `artifacts/irrigbucket-mobile`
