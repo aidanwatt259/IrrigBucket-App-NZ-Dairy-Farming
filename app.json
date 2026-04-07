@@ -13,6 +13,9 @@
         "projectId": "50515e60-d062-4dda-a46e-435b111f42ba"
       }
     },
-    "owner": "aidanwatt259-agri-tech"
+    "owner": "aidanwatt259-agri-tech",
+    "android": {
+      "package": "com.aidanwatt.irrigbucket"
+    }
   }
 }
