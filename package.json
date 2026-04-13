@@ -2,5 +2,8 @@
   "name": "irrigbucket",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.26.1"
+  "packageManager": "pnpm@10.26.1",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0"
+  }
 }
