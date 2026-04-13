@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, reportsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
 import { SaveReportBody } from "@workspace/api-zod";
+import { supabase } from "../lib/supabase.js";
 
 const router: IRouter = Router();
 
@@ -14,21 +13,28 @@ router.post("/reports", async (req, res) => {
 
   const { irrigatorType, farmName, assessorName, testDate, duPercent, duStatus, reportData } = parsed.data;
 
-  const [report] = await db
-    .insert(reportsTable)
-    .values({
-      userId: req.user?.id ?? null,
-      irrigatorType: irrigatorType ?? null,
-      farmName: farmName ?? null,
-      assessorName: assessorName ?? null,
-      testDate: testDate ?? null,
-      duPercent: duPercent ?? null,
-      duStatus: duStatus ?? null,
-      reportData,
+  const { data: report, error } = await supabase
+    .from("reports")
+    .insert({
+      user_id: req.user?.id ?? null,
+      irrigator_type: irrigatorType ?? null,
+      farm_name: farmName ?? null,
+      assessor_name: assessorName ?? null,
+      test_date: testDate ?? null,
+      du_percent: duPercent ?? null,
+      du_status: duStatus ?? null,
+      report_data: reportData,
     })
-    .returning();
+    .select()
+    .single();
 
-  res.status(201).json({ report: { ...report, createdAt: report.createdAt.toISOString() } });
+  if (error || !report) {
+    console.error("Supabase insert error:", error);
+    res.status(500).json({ error: "Failed to save report" });
+    return;
+  }
+
+  res.status(201).json({ report: toReportResponse(report) });
 });
 
 router.get("/reports", async (req, res) => {
@@ -37,38 +43,68 @@ router.get("/reports", async (req, res) => {
     return;
   }
 
-  const reports = await db
-    .select()
-    .from(reportsTable)
-    .where(eq(reportsTable.userId, req.user.id))
-    .orderBy(desc(reportsTable.createdAt));
+  const { data: reports, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("user_id", req.user.id)
+    .order("created_at", { ascending: false });
 
-  res.json({
-    reports: reports.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-  });
+  if (error) {
+    console.error("Supabase select error:", error);
+    res.status(500).json({ error: "Failed to fetch reports" });
+    return;
+  }
+
+  res.json({ reports: (reports ?? []).map(toReportResponse) });
 });
 
 router.get("/reports/:id", async (req, res) => {
   const { id } = req.params;
 
-  const [report] = await db
-    .select()
-    .from(reportsTable)
-    .where(eq(reportsTable.id, id))
-    .limit(1);
+  const { data: report, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("id", id)
+    .single();
 
-  if (!report) {
+  if (error || !report) {
     res.status(404).json({ error: "Report not found" });
     return;
   }
 
-  if (report.userId && req.user?.id !== report.userId && !isAdmin(req)) {
+  if (report.user_id && req.user?.id !== report.user_id && !isAdmin(req)) {
     res.status(404).json({ error: "Report not found" });
     return;
   }
 
-  res.json({ report: { ...report, createdAt: report.createdAt.toISOString() } });
+  res.json({ report: toReportResponse(report) });
 });
+
+function toReportResponse(r: {
+  id: string;
+  user_id: string | null;
+  irrigator_type: string | null;
+  farm_name: string | null;
+  assessor_name: string | null;
+  test_date: string | null;
+  report_data: unknown;
+  du_percent: string | null;
+  du_status: string | null;
+  created_at: string;
+}) {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    irrigatorType: r.irrigator_type,
+    farmName: r.farm_name,
+    assessorName: r.assessor_name,
+    testDate: r.test_date,
+    reportData: r.report_data,
+    duPercent: r.du_percent,
+    duStatus: r.du_status,
+    createdAt: r.created_at,
+  };
+}
 
 export function isAdmin(req: Express.Request): boolean {
   if (!req.user) return false;

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, feedbackTable } from "@workspace/db";
+import { supabase } from "../lib/supabase.js";
 
 const router: IRouter = Router();
 
@@ -11,19 +11,26 @@ router.post("/feedback", async (req, res) => {
     return;
   }
 
-  const [row] = await db
-    .insert(feedbackTable)
-    .values({
-      userId: req.user?.id ?? null,
+  const { data: row, error } = await supabase
+    .from("feedback")
+    .insert({
+      user_id: req.user?.id ?? null,
       message: message.trim(),
-      contactInfo: typeof contactInfo === "string" && contactInfo.trim() ? contactInfo.trim() : null,
+      contact_info: typeof contactInfo === "string" && contactInfo.trim() ? contactInfo.trim() : null,
     })
-    .returning();
+    .select()
+    .single();
+
+  if (error || !row) {
+    console.error("Supabase insert error:", error);
+    res.status(500).json({ error: "Failed to submit feedback" });
+    return;
+  }
 
   res.status(201).json({
     feedback: {
       id: row.id,
-      createdAt: row.createdAt.toISOString(),
+      createdAt: row.created_at,
     },
   });
 });
