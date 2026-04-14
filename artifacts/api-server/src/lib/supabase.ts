@@ -1,11 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// Use the service role key so the server can bypass Row Level Security.
+// The anon key is subject to RLS policies which block server-side writes.
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    "SUPABASE_URL and SUPABASE_ANON_KEY environment variables must be set.",
+    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables must be set.",
   );
 }
 
@@ -58,4 +61,11 @@ export type Database = {
   };
 };
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+  auth: {
+    // Disable Supabase Auth on the server-side client — we handle auth ourselves.
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});
