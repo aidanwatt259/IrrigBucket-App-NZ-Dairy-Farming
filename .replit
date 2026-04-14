@@ -36,5 +36,4 @@ packages = ["eas-cli", "killall"]
 [userenv]
 
 [userenv.shared]
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6bHVrZG53a21ud2xrZnJpdHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwNTg3NjEsImV4cCI6MjA5MTYzNDc2MX0.44liPZ-MdD3NXerUadCsxNYo_WMfNcOPfr66xNApmug"
 SUPABASE_URL = "https://szlukdnwkmnwlkfritpl.supabase.co"
