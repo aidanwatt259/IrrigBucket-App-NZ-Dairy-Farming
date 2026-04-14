@@ -34,31 +34,6 @@ export default function Operation() {
           Record the operating conditions during the test. This data is captured for your report but does not affect DU calculations.
         </p>
 
-        {/* Identity */}
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <h3 className="font-bold text-lg font-display">Test Identity</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label>Farm Name</Label>
-                <Input placeholder="e.g. Wiper Farm Road" value={operationData.farmName ?? ''} onChange={e => update('farmName', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Irrigator Name / ID</Label>
-                <Input placeholder="e.g. Pivot 2 North" value={operationData.irrigatorName ?? ''} onChange={e => update('irrigatorName', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Assessor Name</Label>
-                <Input placeholder="e.g. John Smith" value={operationData.assessorName ?? ''} onChange={e => update('assessorName', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Test Date</Label>
-                <Input type="date" value={testDate} onChange={e => setTestConditions(e.target.value, windSpeed)} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Speed & Pressure */}
         <Card>
           <CardContent className="pt-6 space-y-4">

@@ -22,6 +22,7 @@ ALTER TABLE feedback DROP CONSTRAINT IF EXISTS feedback_user_id_fkey;
 ALTER TABLE reports ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS du_percent text;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS du_status text;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS test_date text;
 
 -- Change user_id columns to text (Replit user IDs are plain strings, not UUIDs)
 ALTER TABLE reports ALTER COLUMN user_id TYPE text USING user_id::text;
