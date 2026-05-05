@@ -29,12 +29,27 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
-  // Drop the old email unique constraint — Supabase Auth enforces email
-  // uniqueness at the provider level, so we don't need it here. It also
-  // blocks upserts when a Supabase UUID differs from an old Replit OIDC ID
-  // for the same email address.
+  // Dynamically find and drop any unique constraint on the email column.
+  // Supabase Auth enforces email uniqueness at the provider level so we
+  // don't need it here, and it blocks upserts when a Supabase UUID differs
+  // from an old Replit OIDC user-id for the same email address.
   await db.execute(sql`
-    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key
+    DO $$
+    DECLARE
+      c text;
+    BEGIN
+      SELECT tc.constraint_name INTO c
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name
+       AND tc.table_schema    = ccu.table_schema
+      WHERE tc.table_name    = 'users'
+        AND ccu.column_name  = 'email'
+        AND tc.constraint_type = 'UNIQUE';
+      IF c IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE users DROP CONSTRAINT ' || quote_ident(c);
+      END IF;
+    END $$
   `);
 
   await db.execute(sql`
