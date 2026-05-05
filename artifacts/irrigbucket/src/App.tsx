@@ -17,6 +17,8 @@ import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +38,8 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
         <Route path="/auth-callback" component={AuthCallback} />
         <Route path="/setup" component={SystemSetup} />
         <Route path="/plan" component={TestPlan} />

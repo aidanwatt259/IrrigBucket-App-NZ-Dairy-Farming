@@ -20,13 +20,21 @@ export async function runMigrations(): Promise<void> {
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-      email VARCHAR UNIQUE,
+      email VARCHAR,
       first_name VARCHAR,
       last_name VARCHAR,
       profile_image_url VARCHAR,
       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
     )
+  `);
+
+  // Drop the old email unique constraint — Supabase Auth enforces email
+  // uniqueness at the provider level, so we don't need it here. It also
+  // blocks upserts when a Supabase UUID differs from an old Replit OIDC ID
+  // for the same email address.
+  await db.execute(sql`
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key
   `);
 
   await db.execute(sql`
