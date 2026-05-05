@@ -15,6 +15,8 @@ import Results from "@/pages/Results";
 import SavedReport from "@/pages/SavedReport";
 import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
+import Login from "@/pages/Login";
+import Signup from "@/pages/Signup";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ function Router() {
       <ScrollToTop />
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/login" component={Login} />
+        <Route path="/signup" component={Signup} />
         <Route path="/auth-callback" component={AuthCallback} />
         <Route path="/setup" component={SystemSetup} />
         <Route path="/plan" component={TestPlan} />

@@ -41,12 +41,29 @@ export function useAuth(): AuthState {
     };
   }, []);
 
+  // Navigate to the app's own login page instead of Replit OIDC.
   const login = useCallback(() => {
-    const base = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(base)}`;
+    const base = (import.meta.env.BASE_URL ?? "/").replace(/\/+$/, "");
+    window.location.href = `${base}/login`;
   }, []);
 
-  const logout = useCallback(() => {
+  // Clear the server session; best-effort Supabase signOut first.
+  const logout = useCallback(async () => {
+    try {
+      const configRes = await fetch("/api/config");
+      if (configRes.ok) {
+        const { supabaseUrl, supabaseAnonKey } = await configRes.json();
+        if (supabaseUrl && supabaseAnonKey) {
+          const { createClient } = await import("@supabase/supabase-js");
+          const sb = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: false },
+          });
+          await sb.auth.signOut();
+        }
+      }
+    } catch {
+      // Non-fatal — server session cleared below regardless
+    }
     window.location.href = "/api/logout";
   }, []);
 
