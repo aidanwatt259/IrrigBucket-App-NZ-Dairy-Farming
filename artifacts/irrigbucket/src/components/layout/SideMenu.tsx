@@ -427,7 +427,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
               Log in
             </Button>
           )}
-          {isAuthenticated && (
+          {user?.isAdmin && (
             <button
               onClick={() => { onClose(); setLocation('/admin'); }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"

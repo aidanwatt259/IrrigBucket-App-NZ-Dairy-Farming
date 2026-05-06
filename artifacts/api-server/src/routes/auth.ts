@@ -10,6 +10,7 @@ import {
   SESSION_TTL,
   type SessionData,
 } from "../lib/auth";
+import { isAdmin } from "./reports.js";
 
 const router: IRouter = Router();
 
@@ -66,7 +67,9 @@ router.get("/config", (_req: Request, res: Response) => {
 router.get("/auth/user", (req: Request, res: Response) => {
   res.json(
     GetCurrentAuthUserResponse.parse({
-      user: req.isAuthenticated() ? req.user : null,
+      user: req.isAuthenticated()
+        ? { ...req.user, isAdmin: isAdmin(req) }
+        : null,
     }),
   );
 });
