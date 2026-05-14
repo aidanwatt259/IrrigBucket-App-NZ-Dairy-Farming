@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { FileText, Trash2, ChevronRight, ClipboardList, LogIn, LogOut, User, Cloud, HelpCircle, Send, X, ShieldCheck, MessageSquare } from 'lucide-react';
+import { FileText, Trash2, ChevronRight, ClipboardList, LogIn, LogOut, User, Cloud, HelpCircle, Send, X, ShieldCheck, MessageSquare, AlertTriangle } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -44,6 +44,8 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
   const [feedbackContact, setFeedbackContact] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'local' | 'cloud'; label: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
 
@@ -85,10 +87,35 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
     setLocation(`/reports/${id}`);
   }
 
-  function handleDelete(e: React.MouseEvent, id: string) {
+  function handleDelete(e: React.MouseEvent, id: string, label: string) {
     e.stopPropagation();
-    deleteReport(id);
-    setReports((prev) => prev.filter((r) => r.id !== id));
+    setPendingDelete({ id, type: 'local', label });
+  }
+
+  function handleDeleteCloud(e: React.MouseEvent, id: string, label: string) {
+    e.stopPropagation();
+    setPendingDelete({ id, type: 'cloud', label });
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleteLoading(true);
+    try {
+      if (pendingDelete.type === 'local') {
+        deleteReport(pendingDelete.id);
+        setReports((prev) => prev.filter((r) => r.id !== pendingDelete.id));
+      } else {
+        await fetch(`/api/reports/${pendingDelete.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        setServerReports((prev) => prev.filter((r) => r.id !== pendingDelete.id));
+      }
+    } catch {
+    } finally {
+      setDeleteLoading(false);
+      setPendingDelete(null);
+    }
   }
 
   function handleOpenCloud(sr: ServerReport) {
@@ -175,7 +202,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-80 sm:w-96 p-0 flex flex-col">
+      <SheetContent side="right" className="w-80 sm:w-96 p-0 flex flex-col relative overflow-hidden">
         <SheetHeader className="px-6 py-5 border-b border-border/50">
           <SheetTitle className="text-lg font-display font-bold flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary" />
@@ -246,7 +273,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                            onClick={(e) => handleDelete(e, report.id)}
+                            onClick={(e) => handleDelete(e, report.id, getReportLabel(report))}
                             aria-label="Delete report"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -259,7 +286,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                   {cloudOnlyReports.map((sr) => (
                     <li key={sr.id}>
                       <button
-                        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/50 transition-colors text-left"
+                        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted/50 transition-colors text-left group"
                         onClick={() => handleOpenCloud(sr)}
                       >
                         <div className="bg-sky-100 p-2 rounded-lg text-sky-600 shrink-0">
@@ -275,7 +302,18 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                             </p>
                           )}
                         </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                            onClick={(e) => handleDeleteCloud(e, sr.id, getCloudLabel(sr))}
+                            aria-label="Delete report"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+                        </div>
                       </button>
                     </li>
                   ))}
@@ -393,6 +431,44 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
             </div>
           )}
         </div>
+
+        {/* Delete confirmation dialog */}
+        {pendingDelete && (
+          <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/30 rounded-2xl">
+            <div className="w-full bg-white rounded-t-2xl p-6 shadow-xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Delete report?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-52">{pendingDelete.label}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                This report will be removed from your account. {pendingDelete.type === 'cloud' ? 'You can contact support to restore it if needed.' : 'This cannot be undone.'}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setPendingDelete(null)}
+                  disabled={deleteLoading}
+                >
+                  Keep report
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={confirmDelete}
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Deleting…' : 'Yes, delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-border/50 px-6 py-4 space-y-3">
           {isLoading ? (

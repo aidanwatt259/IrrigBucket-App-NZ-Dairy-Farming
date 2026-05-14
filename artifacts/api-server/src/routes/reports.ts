@@ -47,6 +47,7 @@ router.get("/reports", async (req, res) => {
     .from("reports")
     .select("*")
     .eq("user_id", req.user.id)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -80,6 +81,69 @@ router.get("/reports/:id", async (req, res) => {
   res.json({ report: toReportResponse(report) });
 });
 
+// Soft-delete a report — sets deleted_at so it disappears from the user's
+// list but remains in the database and is recoverable by an admin.
+router.delete("/reports/:id", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const { id } = req.params;
+
+  // Verify the report belongs to this user (or the caller is admin).
+  const { data: report, error: fetchError } = await supabase
+    .from("reports")
+    .select("id, user_id")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !report) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+
+  if (report.user_id !== req.user.id && !isAdmin(req)) {
+    res.status(403).json({ error: "Not authorised" });
+    return;
+  }
+
+  const { error: updateError } = await supabase
+    .from("reports")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (updateError) {
+    console.error("Supabase soft-delete error:", updateError);
+    res.status(500).json({ error: "Failed to delete report" });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
+// Admin: restore a soft-deleted report back to a user's account.
+router.patch("/reports/:id/restore", async (req, res) => {
+  if (!isAdmin(req)) {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+
+  const { id } = req.params;
+
+  const { error } = await supabase
+    .from("reports")
+    .update({ deleted_at: null })
+    .eq("id", id);
+
+  if (error) {
+    res.status(500).json({ error: "Failed to restore report" });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 function toReportResponse(r: {
   id: string;
   user_id: string | null;
@@ -91,6 +155,7 @@ function toReportResponse(r: {
   du_percent: string | null;
   du_status: string | null;
   created_at: string;
+  deleted_at?: string | null;
 }) {
   return {
     id: r.id,
@@ -103,6 +168,7 @@ function toReportResponse(r: {
     duPercent: r.du_percent,
     duStatus: r.du_status,
     createdAt: r.created_at,
+    deletedAt: r.deleted_at ?? null,
   };
 }
 

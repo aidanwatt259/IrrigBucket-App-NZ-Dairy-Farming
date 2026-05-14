@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/ui/AppButton';
@@ -77,7 +77,16 @@ export default function ReportsScreen() {
                         {report.operationData.assessorName ? `  ·  ${report.operationData.assessorName}` : ''}
                       </Text>
                       <TouchableOpacity
-                        onPress={() => deleteReport(report.id)}
+                        onPress={() =>
+                          Alert.alert(
+                            'Delete report?',
+                            `"${report.operationData.farmName || 'Unnamed Farm'}" will be removed from your device. This cannot be undone.`,
+                            [
+                              { text: 'Keep report', style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => deleteReport(report.id) },
+                            ],
+                          )
+                        }
                         hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                         testID={`delete-${report.id}`}
                       >

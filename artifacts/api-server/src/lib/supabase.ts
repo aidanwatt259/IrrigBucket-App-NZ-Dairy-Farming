@@ -27,10 +27,13 @@ export type Database = {
           du_percent: string | null;
           du_status: string | null;
           created_at: string;
+          deleted_at: string | null;
         };
-        Insert: Omit<Database["public"]["Tables"]["reports"]["Row"], "id" | "created_at"> & {
+        Insert: Omit<Database["public"]["Tables"]["reports"]["Row"], "id" | "created_at" | "deleted_at"> & {
           id?: string;
+          deleted_at?: string | null;
         };
+        Update: Partial<Database["public"]["Tables"]["reports"]["Row"]>;
       };
       help_requests: {
         Row: {
