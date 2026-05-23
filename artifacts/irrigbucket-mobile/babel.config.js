@@ -1,23 +1,37 @@
+const path = require("path");
+
 const { expoRouterBabelPlugin } = require("babel-preset-expo/build/expo-router-plugin");
 
 // In this pnpm monorepo, `babel-preset-expo` is hoisted to the workspace root,
-// where its internal `hasModule('expo-router')` check fails — so it never
-// registers `expoRouterBabelPlugin`, leaving `process.env.EXPO_ROUTER_APP_ROOT`
-// un-inlined and breaking the `require.context()` call in expo-router/_ctx.*.js.
-// We detect that case and inject the plugin manually. If hoisting ever changes
-// and the preset auto-registers it, this branch is skipped to avoid double-running.
-let needsManualRouterPlugin = false;
+// where its internal `hasModule(...)` checks fail (because expo-router /
+// react-native-worklets / react-native-reanimated are only installed under the
+// mobile artifact's own node_modules). Without those checks succeeding, the
+// preset never registers the expo-router and worklets babel plugins — causing:
+//   * `process.env.EXPO_ROUTER_APP_ROOT` not inlined → require.context() throws
+//   * runtime `[Worklets] Failed to create a worklet` errors
+//
+// We detect that case and inject the plugins manually. If hoisting ever changes
+// and the preset auto-registers them, this branch is skipped to avoid double-running.
+let needsManualPlugins = false;
 try {
-  const presetDir = require.resolve("babel-preset-expo/package.json");
-  require.resolve("expo-router", { paths: [require("path").dirname(presetDir)] });
+  const presetDir = path.dirname(require.resolve("babel-preset-expo/package.json"));
+  require.resolve("react-native-worklets/plugin", { paths: [presetDir] });
 } catch {
-  needsManualRouterPlugin = true;
+  needsManualPlugins = true;
 }
+
+const manualPlugins = needsManualPlugins
+  ? [
+      expoRouterBabelPlugin,
+      // IMPORTANT: react-native-worklets/plugin MUST be the LAST plugin.
+      require.resolve("react-native-worklets/plugin"),
+    ]
+  : [];
 
 module.exports = function (api) {
   api.cache(true);
   return {
     presets: [["babel-preset-expo", { unstable_transformImportMeta: true }]],
-    plugins: needsManualRouterPlugin ? [expoRouterBabelPlugin] : [],
+    plugins: manualPlugins,
   };
 };
