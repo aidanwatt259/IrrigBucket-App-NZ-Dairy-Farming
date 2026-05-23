@@ -202,7 +202,8 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-80 sm:w-96 p-0 flex flex-col relative overflow-hidden">
+      <SheetContent side="right" className="w-80 sm:w-96 p-0">
+        <div className="flex flex-col h-full relative overflow-hidden">
         <SheetHeader className="px-6 py-5 border-b border-border/50">
           <SheetTitle className="text-lg font-display font-bold flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-primary" />
@@ -512,6 +513,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
               Admin panel
             </button>
           )}
+        </div>
         </div>
       </SheetContent>
     </Sheet>
