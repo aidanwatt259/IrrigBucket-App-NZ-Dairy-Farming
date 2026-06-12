@@ -26,6 +26,8 @@ export default function SetupScreen() {
     machineWidth: String(systemParams.machineWidth || 100),
     podSpacing: String(systemParams.podSpacing || 15),
     podsPerLateral: String(systemParams.podsPerLateral || 8),
+    klineTestMinutes: systemParams.klineTestMinutes ? String(systemParams.klineTestMinutes) : '',
+    klineSetHours: String(systemParams.klineSetHours || 24),
     gunRadius: String(systemParams.gunRadius || 40),
     laneSpacing: String(systemParams.laneSpacing || 60),
     gunNumBuckets: String(systemParams.gunNumBuckets || ''),
@@ -59,7 +61,12 @@ export default function SetupScreen() {
     num('targetDepth', 1, 100, 'Target depth');
     if (isPivot) num('armLength', 10, 5000, 'Arm length');
     if (irrigatorType === 'lateral') num('machineWidth', 10, 1000, 'Machine width');
-    if (irrigatorType === 'kline') { num('podSpacing', 5, 50, 'Pod spacing'); num('podsPerLateral', 2, 30, 'Pods per lateral'); }
+    if (irrigatorType === 'kline') {
+      num('podSpacing', 5, 50, 'Pod spacing');
+      num('podsPerLateral', 2, 30, 'Pods per lateral');
+      if (values.klineTestMinutes.trim() !== '') num('klineTestMinutes', 1, 1440, 'Test run time');
+      if (values.klineSetHours.trim() !== '') num('klineSetHours', 0.1, 48, 'Set run time');
+    }
     if (irrigatorType === 'gun') { num('gunRadius', 10, 200, 'Gun radius'); num('laneSpacing', 10, 200, 'Lane spacing'); }
     if (irrigatorType === 'solid') num('sprinklerSpacing', 5, 50, 'Sprinkler spacing');
     if (irrigatorType === 'boom') { num('boomWidth', 5, 100, 'Boom width'); num('nozzleSpacing', 0.5, 10, 'Nozzle spacing'); }
@@ -78,6 +85,8 @@ export default function SetupScreen() {
       machineWidth: Number(values.machineWidth),
       podSpacing: Number(values.podSpacing),
       podsPerLateral: Number(values.podsPerLateral),
+      klineTestMinutes: values.klineTestMinutes.trim() ? Number(values.klineTestMinutes) : undefined,
+      klineSetHours: values.klineSetHours.trim() ? Number(values.klineSetHours) : undefined,
       gunRadius: Number(values.gunRadius),
       laneSpacing: Number(values.laneSpacing),
       gunNumBuckets: values.gunNumBuckets ? Number(values.gunNumBuckets) : undefined,
@@ -193,6 +202,8 @@ export default function SetupScreen() {
                 <>
                   <FormField label="Pod Spacing (m)" keyboardType="numeric" value={values.podSpacing} onChangeText={v => set('podSpacing', v)} error={errors.podSpacing} required />
                   <FormField label="Pods Per Lateral" keyboardType="numeric" value={values.podsPerLateral} onChangeText={v => set('podsPerLateral', v)} error={errors.podsPerLateral} required />
+                  <FormField label="Test Run Time (minutes)" hint="How long pods ran while buckets collected — required for application depth" keyboardType="numeric" value={values.klineTestMinutes} onChangeText={v => set('klineTestMinutes', v)} error={errors.klineTestMinutes} placeholder="e.g. 60" />
+                  <FormField label="Set Run Time (hours)" hint="How long the K-Line runs per position (commonly 12–24 hrs)" keyboardType="numeric" value={values.klineSetHours} onChangeText={v => set('klineSetHours', v)} error={errors.klineSetHours} placeholder="e.g. 24" />
                 </>
               )}
               {irrigatorType === 'gun' && (

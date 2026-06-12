@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
 import { useColors } from '@/hooks/useColors';
-import { calculateTestResults } from '@/lib/calculations';
+import { calculateTestResults, calcKlineApplication } from '@/lib/calculations';
 
 export default function ResultsScreen() {
   const colors = useColors();
@@ -26,6 +26,13 @@ export default function ResultsScreen() {
   const results = useMemo(
     () => plan ? calculateTestResults(volumes, systemParams.diameter, systemParams.targetDepth, sections) : null,
     [volumes, systemParams.diameter, systemParams.targetDepth, sections, plan]
+  );
+
+  const klineApp = useMemo(
+    () => irrigatorType === 'kline' && results
+      ? calcKlineApplication(results.avgDepth, systemParams.targetDepth, systemParams.klineTestMinutes, systemParams.klineSetHours)
+      : null,
+    [irrigatorType, results, systemParams]
   );
 
   useEffect(() => {
@@ -62,14 +69,24 @@ export default function ResultsScreen() {
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          {[
-            { label: 'Avg Depth Applied', value: `${results.avgDepth.toFixed(1)} mm`, status: results.depthStatus },
-            { label: 'Target Depth', value: `${results.targetDepth} mm`, status: null },
-            { label: 'Depth Deviation', value: `${results.depthDiff.toFixed(1)}%`, status: results.depthStatus },
-            { label: 'Avg Volume', value: `${(results.avgVolume * 1000).toFixed(0)} mL`, status: null },
-            { label: 'Std Dev', value: `${(results.stdDev * 1000).toFixed(1)} mL`, status: null },
-            { label: 'Buckets Used', value: `${results.validVolumes.length}`, status: null },
-          ].map((item, i) => (
+          {(klineApp
+            ? [
+                { label: 'Application Depth / Set', value: `${klineApp.perSetDepth.toFixed(1)} mm`, status: klineApp.depthStatus },
+                { label: 'Application Rate', value: `${klineApp.applicationRate.toFixed(2)} mm/hr`, status: null },
+                { label: 'Target Depth', value: `${results.targetDepth} mm`, status: null },
+                { label: 'Depth Deviation', value: `${klineApp.depthDiff.toFixed(1)}%`, status: klineApp.depthStatus },
+                { label: 'Set Run Time', value: `${klineApp.setHours} hr`, status: null },
+                { label: 'Buckets Used', value: `${results.validVolumes.length}`, status: null },
+              ]
+            : [
+                { label: 'Avg Depth Applied', value: `${results.avgDepth.toFixed(1)} mm`, status: results.depthStatus },
+                { label: 'Target Depth', value: `${results.targetDepth} mm`, status: null },
+                { label: 'Depth Deviation', value: `${results.depthDiff.toFixed(1)}%`, status: results.depthStatus },
+                { label: 'Avg Volume', value: `${(results.avgVolume * 1000).toFixed(0)} mL`, status: null },
+                { label: 'Std Dev', value: `${(results.stdDev * 1000).toFixed(1)} mL`, status: null },
+                { label: 'Buckets Used', value: `${results.validVolumes.length}`, status: null },
+              ]
+          ).map((item, i) => (
             <View key={i} style={[styles.statItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{item.label}</Text>
               <Text style={[styles.statValue, { color: colors.foreground }]}>{item.value}</Text>
@@ -77,6 +94,17 @@ export default function ResultsScreen() {
             </View>
           ))}
         </View>
+
+        {klineApp && (
+          <View style={[styles.card, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '25' }]}>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>How this was calculated</Text>
+            <Text style={[styles.klineNote, { color: colors.mutedForeground }]}>
+              Buckets caught {klineApp.caughtDepth.toFixed(2)} mm in {klineApp.testMinutes} min = {klineApp.applicationRate.toFixed(2)} mm/hr.
+              Over a {klineApp.setHours}-hour set this applies {klineApp.perSetDepth.toFixed(1)} mm (target {results.targetDepth} mm).
+              Method: IrrigationNZ / DairyNZ bucket test.
+            </Text>
+          </View>
+        )}
 
         {/* Sections */}
         {results.sections.length > 0 && (
@@ -176,6 +204,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontFamily: 'Outfit_700Bold', letterSpacing: -0.5 },
   card: { borderRadius: 16, borderWidth: 1.5, padding: 20, gap: 0 },
   cardTitle: { fontSize: 15, fontFamily: 'Outfit_700Bold', marginBottom: 12 },
+  klineNote: { fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 19 },
   secRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, gap: 12 },
   secName: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   secStats: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },

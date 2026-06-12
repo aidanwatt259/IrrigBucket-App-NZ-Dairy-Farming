@@ -14,6 +14,8 @@ export interface SystemParams {
   gunNumBuckets?: number;
   podSpacing?: number;
   podsPerLateral?: number;
+  klineTestMinutes?: number;
+  klineSetHours?: number;
   sprinklerSpacing?: number;
   rowSpacing?: number;
   nozzleSpacing?: number;
@@ -192,6 +194,45 @@ export function duStatusRating(du: number): 'good' | 'fair' | 'poor' {
 
 export function depthStatusRating(depthDiff: number): 'good' | 'fair' | 'poor' {
   return depthDiff <= 10 ? 'good' : depthDiff <= 25 ? 'fair' : 'poor';
+}
+
+export interface KlineApplication {
+  caughtDepth: number;
+  testMinutes: number;
+  applicationRate: number;
+  setHours: number;
+  perSetDepth: number;
+  depthDiff: number;
+  depthStatus: 'good' | 'fair' | 'poor';
+}
+
+// NZ bucket-test method for stationary K-Line/pod systems:
+//   rate (mm/hr)        = caught depth (mm) / test run time (hr)
+//   per-set depth (mm)  = rate (mm/hr) * set run time (hr)
+// Sources: IrrigationNZ Bucket Test, DairyNZ irrigation bucket test, RX Plastics K-Line.
+export function calcKlineApplication(
+  caughtDepth: number,
+  targetDepth: number,
+  testMinutes?: number,
+  setHours?: number,
+): KlineApplication | null {
+  if (!testMinutes || testMinutes <= 0 || caughtDepth <= 0) return null;
+  const testHours = testMinutes / 60;
+  const applicationRate = caughtDepth / testHours;
+  const effectiveSetHours = setHours && setHours > 0 ? setHours : testHours;
+  const perSetDepth = applicationRate * effectiveSetHours;
+  const depthDiff = targetDepth > 0
+    ? (Math.abs(perSetDepth - targetDepth) / targetDepth) * 100
+    : 0;
+  return {
+    caughtDepth,
+    testMinutes,
+    applicationRate,
+    setHours: effectiveSetHours,
+    perSetDepth,
+    depthDiff,
+    depthStatus: depthStatusRating(depthDiff),
+  };
 }
 
 export function sectionsFromPivot(pivotSections: PivotSection[]): SectionDefinition[] {

@@ -63,6 +63,14 @@ export default function SystemSetup() {
     schema = baseSchema.extend({
       podSpacing: z.coerce.number().min(5).max(50),
       podsPerLateral: z.coerce.number().min(2).max(30),
+      klineTestMinutes: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(1).max(1440).optional(),
+      ),
+      klineSetHours: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(0.1).max(48).optional(),
+      ),
     });
   } else if (irrigatorType === 'gun') {
     schema = baseSchema.extend({
@@ -95,6 +103,8 @@ export default function SystemSetup() {
       machineWidth: systemParams.machineWidth || 100,
       podSpacing: systemParams.podSpacing || 15,
       podsPerLateral: systemParams.podsPerLateral || 8,
+      klineTestMinutes: systemParams.klineTestMinutes || undefined,
+      klineSetHours: systemParams.klineSetHours || 24,
       gunRadius: systemParams.gunRadius || 40,
       laneSpacing: systemParams.laneSpacing || 60,
       gunNumBuckets: systemParams.gunNumBuckets || undefined,
@@ -253,6 +263,18 @@ export default function SystemSetup() {
                       <div className="space-y-3">
                         <Label htmlFor="podsPerLateral">Pods Per Lateral</Label>
                         <Input id="podsPerLateral" type="number" {...register('podsPerLateral')} />
+                      </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="klineTestMinutes">Test Run Time (minutes)</Label>
+                        <Input id="klineTestMinutes" type="number" step="1" placeholder="e.g. 60" {...register('klineTestMinutes')} />
+                        {errors.klineTestMinutes && <p className="text-destructive text-sm">{String((errors.klineTestMinutes as { message?: string }).message)}</p>}
+                        <FieldHint>How long the pods ran while water collected in the buckets. Required to calculate application depth.</FieldHint>
+                      </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="klineSetHours">Set Run Time (hours)</Label>
+                        <Input id="klineSetHours" type="number" step="0.5" placeholder="e.g. 24" {...register('klineSetHours')} />
+                        {errors.klineSetHours && <p className="text-destructive text-sm">{String((errors.klineSetHours as { message?: string }).message)}</p>}
+                        <FieldHint>How long the K-Line runs in one position per set. NZ K-Line is commonly 12–24 hrs.</FieldHint>
                       </div>
                     </>
                   )}

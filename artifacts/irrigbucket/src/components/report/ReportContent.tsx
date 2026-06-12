@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   SystemParams, OperationData, Plan, SectionDefinition, TestResults,
 } from '@/lib/calculations';
-import { populationStdDev } from '@/lib/calculations';
+import { populationStdDev, calcKlineApplication } from '@/lib/calculations';
 
 type DuStatus = 'good' | 'fair' | 'poor';
 
@@ -78,6 +78,10 @@ export function ReportContent({
   const mean = results.avgVolume;
   const stdDev = populationStdDev(results.validVolumes);
   const revolutionTime = systemParams.revolutionTime;
+  const isKline = irrigatorType === 'kline';
+  const klineApp = isKline
+    ? calcKlineApplication(results.avgDepth, systemParams.targetDepth, systemParams.klineTestMinutes, systemParams.klineSetHours)
+    : null;
 
   const formattedDate = testDate
     ? new Date(testDate).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -93,9 +97,11 @@ export function ReportContent({
   const bucketAreaMm2 = Math.PI * Math.pow(systemParams.diameter / 2, 2);
   const bucketAreaM2 = bucketAreaMm2 / 1e6;
 
-  const overallIntensity = (revolutionTime && results.avgDepth > 0)
-    ? Number((results.avgDepth / revolutionTime).toFixed(2))
-    : null;
+  const overallIntensity = klineApp
+    ? Number(klineApp.applicationRate.toFixed(2))
+    : (revolutionTime && results.avgDepth > 0)
+      ? Number((results.avgDepth / revolutionTime).toFixed(2))
+      : null;
 
   const chartData = results.allVolumes
     .map((vol, i) => {
@@ -215,6 +221,45 @@ export function ReportContent({
           </div>
         </div>
 
+        {/* ── K-Line Application Depth ──────────────────────── */}
+        {klineApp && (
+          <section>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">K-Line Application Depth</h2>
+            <div className="border border-slate-200 rounded-md p-4 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Caught in Test</p>
+                  <p className="text-lg font-bold text-slate-800">{klineApp.caughtDepth.toFixed(2)} mm</p>
+                  <p className="text-[11px] text-slate-400">over {klineApp.testMinutes} min</p>
+                </div>
+                <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Application Rate</p>
+                  <p className="text-lg font-bold text-slate-800">{klineApp.applicationRate.toFixed(2)}</p>
+                  <p className="text-[11px] text-slate-400">mm/hr</p>
+                </div>
+                <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Set Run Time</p>
+                  <p className="text-lg font-bold text-slate-800">{klineApp.setHours} hr</p>
+                  <p className="text-[11px] text-slate-400">per position</p>
+                </div>
+                <div className="rounded-md bg-green-50 border border-green-200 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-green-700">Depth / Set</p>
+                  <p className="text-lg font-bold text-green-800">{klineApp.perSetDepth.toFixed(1)} mm</p>
+                  <div className="mt-1 flex justify-center">
+                    <StatusBadge status={klineApp.depthStatus} labels={{ good: 'On Target', fair: 'Close', poor: 'Off Target' }} />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Application depth = rate × set run time. The buckets caught {klineApp.caughtDepth.toFixed(2)} mm in {klineApp.testMinutes} min
+                ({klineApp.applicationRate.toFixed(2)} mm/hr); over a {klineApp.setHours}-hour set this applies <strong>{klineApp.perSetDepth.toFixed(1)} mm</strong> vs
+                a target of {systemParams.targetDepth} mm.{' '}
+                <span className="text-slate-400">Method: IrrigationNZ / DairyNZ bucket test.</span>
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* ── Results Table ─────────────────────────────────── */}
         <section>
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Results</h2>
@@ -226,7 +271,7 @@ export function ReportContent({
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Buckets</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">DU</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">DU Status</th>
-                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Avg Depth (mm)</th>
+                  <th className="text-center px-3 py-2.5 font-semibold text-slate-600">{klineApp ? 'Depth / Set (mm)' : 'Avg Depth (mm)'}</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Depth Status</th>
                   <th className="text-center px-3 py-2.5 font-semibold text-slate-600">Intensity (mm/hr)</th>
                 </tr>
@@ -238,9 +283,9 @@ export function ReportContent({
                   <td className="px-3 py-2.5 text-center text-slate-600">{results.validVolumes.length}</td>
                   <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-800">{results.du.toFixed(2)}</td>
                   <td className="px-3 py-2.5 text-center"><StatusBadge status={results.duStatus} /></td>
-                  <td className="px-3 py-2.5 text-center font-mono text-slate-800">{results.avgDepth.toFixed(1)}</td>
+                  <td className="px-3 py-2.5 text-center font-mono text-slate-800">{(klineApp ? klineApp.perSetDepth : results.avgDepth).toFixed(1)}</td>
                   <td className="px-3 py-2.5 text-center">
-                    <StatusBadge status={results.depthStatus} labels={{ good: 'On Target', fair: 'Close', poor: 'Off Target' }} />
+                    <StatusBadge status={klineApp ? klineApp.depthStatus : results.depthStatus} labels={{ good: 'On Target', fair: 'Close', poor: 'Off Target' }} />
                   </td>
                   <td className="px-3 py-2.5 text-center text-slate-600">
                     {overallIntensity != null ? overallIntensity.toFixed(2) : <span className="text-slate-300">—</span>}
