@@ -1,14 +1,12 @@
 // Reusable Supabase migration runner.
 // Usage: node scripts/apply-supabase-migration.mjs <path-to-sql-file>
 //
-// Connects to the Supabase Postgres via the SUPABASE_DB_URL secret and applies
-// the given SQL file inside a single transaction. Used because Supabase is only
-// otherwise reachable via the REST API (supabase-js cannot run DDL).
+// Applies the given SQL file inside a single transaction against the Supabase
+// Postgres (resolved via scripts/supabase-conn.mjs, which transparently handles
+// the IPv6 direct-host -> IPv4 Session pooler rewrite).
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import pg from "pg";
-
-const { Client } = pg;
+import { connectSupabase } from "./supabase-conn.mjs";
 
 const file = process.argv[2];
 if (!file) {
@@ -16,23 +14,10 @@ if (!file) {
   process.exit(1);
 }
 
-const connectionString = process.env.SUPABASE_DB_URL;
-if (!connectionString) {
-  console.error("SUPABASE_DB_URL is not set.");
-  process.exit(1);
-}
-
 const sql = await readFile(path.resolve(file), "utf8");
-
-const client = new Client({
-  connectionString,
-  ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 20000,
-  statement_timeout: 60000,
-});
+const client = await connectSupabase();
 
 try {
-  await client.connect();
   await client.query("BEGIN");
   await client.query(sql);
   await client.query("COMMIT");
