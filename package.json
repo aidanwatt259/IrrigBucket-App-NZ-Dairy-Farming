@@ -5,5 +5,8 @@
   "packageManager": "pnpm@10.26.1",
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.4"
   }
 }
