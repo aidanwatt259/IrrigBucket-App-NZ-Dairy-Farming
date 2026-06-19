@@ -58,6 +58,9 @@ router.get("/admin/reports", requireAdmin, async (_req, res) => {
         duStatus: r.du_status,
         reportData: r.report_data,
         createdAt: r.created_at,
+        updatedAt: r.updated_at ?? null,
+        clientUpdatedAt: r.client_updated_at ?? null,
+        deletedAt: r.deleted_at ?? null,
         userEmail: user?.email ?? null,
         userName: user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || null : null,
       };
@@ -96,7 +99,7 @@ router.get("/admin/help-requests", requireAdmin, async (_req, res) => {
   });
 });
 
-router.patch("/admin/help-requests/:id/resolve", requireAdmin, async (req, res) => {
+router.patch<{ id: string }>("/admin/help-requests/:id/resolve", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   const { data: updated, error } = await supabase

@@ -27,13 +27,21 @@ export type Database = {
           du_percent: string | null;
           du_status: string | null;
           created_at: string;
+          updated_at: string;
+          client_updated_at: string | null;
           deleted_at: string | null;
         };
-        Insert: Omit<Database["public"]["Tables"]["reports"]["Row"], "id" | "created_at" | "deleted_at"> & {
+        Insert: Omit<
+          Database["public"]["Tables"]["reports"]["Row"],
+          "id" | "created_at" | "updated_at" | "client_updated_at" | "deleted_at"
+        > & {
           id?: string;
+          updated_at?: string;
+          client_updated_at?: string | null;
           deleted_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["reports"]["Row"]>;
+        Relationships: [];
       };
       help_requests: {
         Row: {
@@ -47,6 +55,8 @@ export type Database = {
         Insert: Omit<Database["public"]["Tables"]["help_requests"]["Row"], "id" | "created_at"> & {
           id?: string;
         };
+        Update: Partial<Database["public"]["Tables"]["help_requests"]["Row"]>;
+        Relationships: [];
       };
       feedback: {
         Row: {
@@ -59,8 +69,14 @@ export type Database = {
         Insert: Omit<Database["public"]["Tables"]["feedback"]["Row"], "id" | "created_at"> & {
           id?: string;
         };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Row"]>;
+        Relationships: [];
       };
     };
+    Views: { [_ in never]: never };
+    Functions: { [_ in never]: never };
+    Enums: { [_ in never]: never };
+    CompositeTypes: { [_ in never]: never };
   };
 };
 
