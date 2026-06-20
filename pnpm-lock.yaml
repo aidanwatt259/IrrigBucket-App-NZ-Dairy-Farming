@@ -816,6 +816,12 @@ importers:
         specifier: 'catalog:'
         version: 19.2.14
 
+  lib/sync:
+    devDependencies:
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+
   scripts:
     devDependencies:
       '@types/node':
