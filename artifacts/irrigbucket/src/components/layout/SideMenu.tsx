@@ -51,7 +51,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
 
   useEffect(() => {
     if (open) {
-      setReports(getSavedReports());
+      getSavedReports().then(setReports).catch(() => setReports([]));
       setShowHelp(false);
       setHelpSent(false);
     }
@@ -102,7 +102,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
     setDeleteLoading(true);
     try {
       if (pendingDelete.type === 'local') {
-        deleteReport(pendingDelete.id);
+        await deleteReport(pendingDelete.id);
         setReports((prev) => prev.filter((r) => r.id !== pendingDelete.id));
       } else {
         await fetch(`/api/reports/${pendingDelete.id}`, {
@@ -118,7 +118,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
     }
   }
 
-  function handleOpenCloud(sr: ServerReport) {
+  async function handleOpenCloud(sr: ServerReport) {
     const rd = sr.reportData as any;
     if (!rd) return;
     const localId = rd.id as string | undefined;
@@ -126,7 +126,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
       handleOpen(localId);
       return;
     }
-    const saved = saveLocalReport({
+    const saved = await saveLocalReport({
       irrigatorType: rd.irrigatorType ?? null,
       systemParams: rd.systemParams,
       plan: rd.plan,
@@ -136,7 +136,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
       sections: rd.sections ?? [],
       operationData: rd.operationData ?? {},
     });
-    setReports(getSavedReports());
+    setReports(await getSavedReports());
     onClose();
     setLocation(`/reports/${saved.id}`);
   }

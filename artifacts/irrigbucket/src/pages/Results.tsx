@@ -7,7 +7,6 @@ import { calculateTestResults } from '@/lib/calculations';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { saveReport } from '@/lib/savedReports';
-import { useAuth } from '@workspace/replit-auth-web';
 import { ReportContent } from '@/components/report/ReportContent';
 
 export default function Results() {
@@ -17,12 +16,10 @@ export default function Results() {
     sections, irrigatorType, operationData, reset,
   } = useAppStore();
 
-  // Separate refs so a local save and an API save are tracked independently.
-  // savedRef holds the result of saveReport() once it has been called.
-  const savedRef = useRef<ReturnType<typeof saveReport> | null>(null);
-  const apiSavedRef = useRef(false);
-
-  const { isAuthenticated, isLoading } = useAuth();
+  // Guard so the report is persisted exactly once per mount. Saving writes to
+  // the local-first Dexie store AND enqueues an upsert with the SyncEngine,
+  // which drains to the server when online — no separate API call needed.
+  const savedRef = useRef(false);
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -35,48 +32,10 @@ export default function Results() {
 
   useEffect(() => {
     if (!plan || !results || !volumes.some(v => v > 0)) return;
-
-    // Save to localStorage once, immediately (does not depend on auth state).
-    if (!savedRef.current) {
-      savedRef.current = saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
-    }
-
-    // Wait until auth state is fully resolved before deciding whether to sync
-    // to the server.  Without this guard the effect would fire while
-    // isAuthenticated is still false (loading), mark apiSavedRef as done, and
-    // then never retry once the real auth state arrives.
-    if (isLoading || apiSavedRef.current || !savedRef.current) return;
-    apiSavedRef.current = true;
-
-    if (isAuthenticated) {
-      const saved = savedRef.current;
-      fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          irrigatorType: irrigatorType ?? null,
-          farmName: operationData.farmName ?? null,
-          assessorName: operationData.assessorName ?? null,
-          testDate: testDate || null,
-          duPercent: (results.du * 100).toFixed(1),
-          duStatus: results.duStatus,
-          reportData: {
-            id: saved.id,
-            savedAt: saved.savedAt,
-            irrigatorType,
-            systemParams,
-            plan,
-            volumes,
-            windSpeed,
-            testDate,
-            sections,
-            operationData,
-          },
-        }),
-      }).catch(console.error);
-    }
-  }, [plan, results, isAuthenticated, isLoading]);
+    if (savedRef.current) return;
+    savedRef.current = true;
+    void saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
+  }, [plan, results, volumes, irrigatorType, systemParams, windSpeed, testDate, sections, operationData]);
 
   if (!plan || !results) return null;
 

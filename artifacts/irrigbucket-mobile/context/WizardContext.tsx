@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import {
@@ -9,8 +8,12 @@ import {
   calculatePlan,
   sectionsFromPivot,
 } from '@/lib/calculations';
-
-const STORAGE_KEY = 'irrigbucket_wizard_state';
+import {
+  initSync,
+  listSavedReports,
+  saveReport as engineSaveReport,
+  deleteReport as engineDeleteReport,
+} from '@/lib/sync/syncEngine';
 
 export interface WizardState {
   irrigatorType: string | null;
@@ -82,27 +85,25 @@ const WizardContext = createContext<WizardContextValue | null>(null);
 
 export function WizardProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<WizardState>(initialState);
-  const hydrated = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const refreshSeq = useRef(0);
+  const refreshSavedReports = useCallback(async () => {
+    const seq = ++refreshSeq.current;
+    const reports = await listSavedReports();
+    // Ignore a stale refresh that a newer one has already superseded, so an
+    // out-of-order completion can't overwrite fresher state.
+    if (seq !== refreshSeq.current) return;
+    setState(prev => ({ ...prev, savedReports: reports }));
+  }, []);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      if (raw) {
-        try {
-          const saved = JSON.parse(raw) as Partial<WizardState>;
-          setState(prev => ({
-            ...prev,
-            savedReports: saved.savedReports || [],
-          }));
-        } catch {}
-      }
-      hydrated.current = true;
-    });
-  }, []);
-
-  const persist = useCallback((nextState: WizardState) => {
-    if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ savedReports: nextState.savedReports }));
-  }, []);
+    void (async () => {
+      await initSync();
+      await refreshSavedReports();
+    })();
+  }, [refreshSavedReports]);
 
   const setIrrigatorType = useCallback((type: string) => {
     setState(prev => ({ ...prev, irrigatorType: type }));
@@ -149,36 +150,37 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const saveCurrentReport = useCallback((): SavedReport | null => {
-    let saved: SavedReport | null = null;
-    setState(prev => {
-      if (!prev.plan) return prev;
-      const report: SavedReport = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        savedAt: new Date().toISOString(),
-        irrigatorType: prev.irrigatorType,
-        systemParams: prev.systemParams,
-        plan: prev.plan,
-        volumes: prev.volumes,
-        testDate: prev.testDate,
-        windSpeed: prev.windSpeed,
-        sections: prev.sections,
-        operationData: prev.operationData,
-      };
-      saved = report;
-      const next = { ...prev, savedReports: [report, ...prev.savedReports] };
-      persist(next);
-      return next;
-    });
-    return saved;
-  }, [persist]);
+    const prev = stateRef.current;
+    if (!prev.plan) return null;
+    const report: SavedReport = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      savedAt: new Date().toISOString(),
+      irrigatorType: prev.irrigatorType,
+      systemParams: prev.systemParams,
+      plan: prev.plan,
+      volumes: prev.volumes,
+      testDate: prev.testDate,
+      windSpeed: prev.windSpeed,
+      sections: prev.sections,
+      operationData: prev.operationData,
+    };
+    // Optimistic insert; durable persistence + enqueue happen asynchronously,
+    // then we reconcile from the store to keep ordering authoritative.
+    setState(p => ({ ...p, savedReports: [report, ...p.savedReports] }));
+    void (async () => {
+      await engineSaveReport(report);
+      await refreshSavedReports();
+    })();
+    return report;
+  }, [refreshSavedReports]);
 
   const deleteReport = useCallback((id: string) => {
-    setState(prev => {
-      const next = { ...prev, savedReports: prev.savedReports.filter(r => r.id !== id) };
-      persist(next);
-      return next;
-    });
-  }, [persist]);
+    setState(p => ({ ...p, savedReports: p.savedReports.filter(r => r.id !== id) }));
+    void (async () => {
+      await engineDeleteReport(id);
+      await refreshSavedReports();
+    })();
+  }, [refreshSavedReports]);
 
   return (
     <WizardContext.Provider value={{
