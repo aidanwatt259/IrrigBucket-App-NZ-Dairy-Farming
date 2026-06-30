@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import type { AuthUser } from "@workspace/api-client-react";
+import type { AuthUser as ApiAuthUser } from "@workspace/api-client-react";
 
-export type { AuthUser };
+/**
+ * The auth boundary's user type. The server's `/api/auth/user` response includes
+ * an `isAdmin` flag that the OpenAPI-generated `AuthUser` does not model, so the
+ * auth lib augments it here (this lib owns the web app's auth contract).
+ */
+export type AuthUser = ApiAuthUser & { isAdmin?: boolean };
 
 interface AuthState {
   user: AuthUser | null;
