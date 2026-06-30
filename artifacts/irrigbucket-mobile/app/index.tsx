@@ -54,21 +54,31 @@ export default function HomeScreen() {
             Irrig<Text style={{ color: colors.primary }}>Bucket</Text>
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => router.push('/reports')}
-          style={[styles.reportsBtn, { backgroundColor: colors.muted }]}
-          activeOpacity={0.7}
-          testID="reports-button"
-        >
-          <Feather name="file-text" size={18} color={colors.foreground} />
-          {savedReports.length > 0 && (
-            <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
-                {savedReports.length}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => router.push('/account')}
+            style={[styles.reportsBtn, { backgroundColor: colors.muted }]}
+            activeOpacity={0.7}
+            testID="account-button"
+          >
+            <Feather name="user" size={18} color={colors.foreground} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/reports')}
+            style={[styles.reportsBtn, { backgroundColor: colors.muted }]}
+            activeOpacity={0.7}
+            testID="reports-button"
+          >
+            <Feather name="file-text" size={18} color={colors.foreground} />
+            {savedReports.length > 0 && (
+              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
+                  {savedReports.length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -184,6 +194,7 @@ const styles = StyleSheet.create({
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   logoText: { fontSize: 22, fontFamily: 'Outfit_700Bold', letterSpacing: -0.5 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   reportsBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },

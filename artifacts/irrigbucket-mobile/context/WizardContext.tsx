@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import * as Crypto from 'expo-crypto';
 
 import {
   OperationData,
@@ -13,6 +14,7 @@ import {
   listSavedReports,
   saveReport as engineSaveReport,
   deleteReport as engineDeleteReport,
+  subscribeReportsChanged,
 } from '@/lib/sync/syncEngine';
 
 export interface WizardState {
@@ -105,6 +107,14 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refreshSavedReports]);
 
+  // Re-read whenever the engine signals the local report set may have changed
+  // (a sync push completed, a pull adopted rows, or a sign-in rekey ran).
+  useEffect(() => {
+    return subscribeReportsChanged(() => {
+      void refreshSavedReports();
+    });
+  }, [refreshSavedReports]);
+
   const setIrrigatorType = useCallback((type: string) => {
     setState(prev => ({ ...prev, irrigatorType: type }));
   }, []);
@@ -153,7 +163,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     const prev = stateRef.current;
     if (!prev.plan) return null;
     const report: SavedReport = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Crypto.randomUUID(),
       savedAt: new Date().toISOString(),
       irrigatorType: prev.irrigatorType,
       systemParams: prev.systemParams,

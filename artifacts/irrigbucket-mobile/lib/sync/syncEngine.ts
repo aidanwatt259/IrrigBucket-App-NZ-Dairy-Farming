@@ -1,35 +1,39 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import * as Crypto from 'expo-crypto';
 
 import { SyncEngine } from '@workspace/sync';
-import type { StorageAdapter, SyncReport, SyncStatus } from '@workspace/sync';
+import type { SyncReport, SyncStatus } from '@workspace/sync';
 
 import { calculateTestResults } from '@/lib/calculations';
 import type { SavedReport } from '@/context/WizardContext';
 
 import { createSqliteAdapter } from './sqliteAdapter';
+import type { SqliteAdapter } from './sqliteAdapter';
 import { createTransport } from './transport';
 
 const LEGACY_WIZARD_KEY = 'irrigbucket_wizard_state';
 const MIGRATED_FLAG = 'irrigbucket_sqlite_migrated';
 
 let engine: SyncEngine<SavedReport> | null = null;
-let adapter: StorageAdapter<SavedReport> | null = null;
+let adapter: SqliteAdapter<SavedReport> | null = null;
 let initPromise: Promise<void> | null = null;
 
 let currentStatus: SyncStatus = { state: 'offline', pending: 0, lastError: null };
 const statusListeners = new Set<(status: SyncStatus) => void>();
+const reportsChangedListeners = new Set<() => void>();
 
 /**
- * Whether the app has an authenticated session that may sync to the server.
- *
- * Phase 4 is intentionally ANONYMOUS: this stub always returns `false`, so the
- * engine is held permanently offline and the outbox accumulates locally without
- * ever hitting the network. Phase 5 replaces this with a real secure-store
- * token check and lets connectivity drive draining.
+ * Whether an authenticated session is active. While false the engine is held
+ * offline regardless of connectivity, so the outbox accumulates locally.
  */
+let authed = false;
+/** Latest known connectivity, so an auth change can re-derive the online state. */
+let lastConnected = false;
+
+/** Whether an authenticated session is currently active. */
 export function isAuthed(): boolean {
-  return false;
+  return authed;
 }
 
 function genId(): string {
@@ -65,12 +69,51 @@ function mapSavedToSync(saved: SavedReport): SyncReport<SavedReport> {
 function emit(status: SyncStatus): void {
   currentStatus = status;
   statusListeners.forEach((listener) => listener(status));
+  // A status change frequently coincides with the local report set changing
+  // (a push completed, a pull adopted rows); nudge subscribers to re-read.
+  notifyReportsChanged();
 }
 
-/** Apply connectivity to the engine, gated by {@link isAuthed}. */
-function applyOnline(connected: boolean): void {
+function notifyReportsChanged(): void {
+  reportsChangedListeners.forEach((listener) => listener());
+}
+
+/**
+ * Subscribe to "the local report set may have changed" notifications (emitted
+ * after syncs, pulls, and rekeys). Returns an unsubscribe function.
+ */
+export function subscribeReportsChanged(listener: () => void): () => void {
+  reportsChangedListeners.add(listener);
+  return () => {
+    reportsChangedListeners.delete(listener);
+  };
+}
+
+/** Push the derived online state (connectivity AND auth) into the engine. */
+function applyOnline(): void {
   if (!engine) return;
-  engine.setOnline(connected && isAuthed());
+  engine.setOnline(lastConnected && authed);
+}
+
+/** Pull authoritative server state when both connected and authed. */
+async function pullIfPossible(): Promise<void> {
+  if (!engine || !authed || !lastConnected) return;
+  try {
+    await engine.reconcilePull();
+    notifyReportsChanged();
+  } catch {
+    // Pull failures surface via status events; the next online edge retries.
+  }
+}
+
+/** React to a connectivity change, pulling on a fresh offline→online edge. */
+function handleConnectivity(connected: boolean): void {
+  const wasConnected = lastConnected;
+  lastConnected = connected;
+  applyOnline();
+  if (connected && !wasConnected && authed) {
+    void pullIfPossible();
+  }
 }
 
 /**
@@ -132,12 +175,12 @@ export function initSync(): Promise<void> {
 
       await runMigration();
 
-      // Connectivity drives draining only when authed (never in Phase 4).
+      // Connectivity is tracked always; it only drives draining once authed.
       NetInfo.addEventListener((state) => {
-        applyOnline(state.isConnected ?? false);
+        handleConnectivity(state.isConnected ?? false);
       });
       const initial = await NetInfo.fetch();
-      applyOnline(initial.isConnected ?? false);
+      handleConnectivity(initial.isConnected ?? false);
     })();
   }
   return initPromise;
@@ -145,6 +188,34 @@ export function initSync(): Promise<void> {
 
 async function ensureReady(): Promise<void> {
   await initSync();
+}
+
+/**
+ * Promote the engine to an authenticated, syncing state. Rekeys any anonymous
+ * local reports to server-valid UUIDs FIRST (while still gated offline), then
+ * applies connectivity to drain the outbox and pulls the account's
+ * authoritative reports. Safe to call repeatedly.
+ */
+export async function enableSync(): Promise<void> {
+  await ensureReady();
+  // Rekey FIRST, while still gated offline (authed=false), so a rekey failure
+  // can't leave the engine half-enabled and draining non-UUID ids. Only flip
+  // authed once anonymous ids are server-valid UUIDs.
+  await adapter!.rekeyAnonymousIds(() => Crypto.randomUUID());
+  authed = true;
+  notifyReportsChanged();
+  applyOnline();
+  await pullIfPossible();
+}
+
+/**
+ * Drop back to local-only: stop draining and pulling but KEEP all local data
+ * and the outbox intact. Used on sign-out.
+ */
+export async function disableSync(): Promise<void> {
+  await ensureReady();
+  authed = false;
+  applyOnline();
 }
 
 /** Persist + enqueue a saved report through the engine. */

@@ -11,6 +11,25 @@ import type {
 
 import { getDb } from './sqliteDb';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The sqlite adapter additionally exposes a mobile-only id reconciliation step
+ * (Phase 5). It is NOT part of the shared {@link StorageAdapter} contract.
+ */
+export type SqliteAdapter<TData> = StorageAdapter<TData> & {
+  /**
+   * Rekey anonymous, never-synced local reports whose id is not a server-valid
+   * UUID to a fresh UUID (from `makeId`). The server's `reports.id` is a
+   * Postgres `uuid`, so locally-minted non-UUID ids must be rewritten before
+   * they can be pushed. Runs through the same serial mutex as every other op
+   * and is intended to be called while sync is gated OFF so no drain races it.
+   * Idempotent: rows that already carry UUID ids are skipped.
+   */
+  rekeyAnonymousIds(makeId: () => string): Promise<void>;
+};
+
 interface ReportRow {
   id: string;
   client_updated_at: string;
@@ -127,7 +146,7 @@ async function insertQueueItem(db: SQLiteDatabase, item: SyncQueueItem): Promise
  * as if exclusive across both platforms.
  */
 export async function createSqliteAdapter<TData = Record<string, unknown>>(): Promise<
-  StorageAdapter<TData>
+  SqliteAdapter<TData>
 > {
   const db = await getDb();
 
@@ -278,6 +297,49 @@ export async function createSqliteAdapter<TData = Record<string, unknown>>(): Pr
             await upsertReport(db, record);
           }
         });
+      });
+    },
+
+    rekeyAnonymousIds(makeId) {
+      return serial(async () => {
+        const rows = await db.getAllAsync<{ id: string; report_data: string }>(
+          'SELECT id, report_data FROM reports WHERE user_id IS NULL AND synced_at IS NULL',
+        );
+        for (const row of rows) {
+          if (UUID_RE.test(row.id)) continue;
+          const newId = makeId();
+          let dataStr = row.report_data;
+          try {
+            const data = JSON.parse(row.report_data) as Record<string, unknown>;
+            data.id = newId;
+            dataStr = JSON.stringify(data);
+          } catch {
+            // Unparseable payload: still rekey the row + queue so it can sync;
+            // the embedded id stays stale but the PK and queue stay consistent.
+          }
+          await db.withTransactionAsync(async () => {
+            // Re-guard inside the txn: skip if the row was adopted, claimed by an
+            // account, or removed since the snapshot above.
+            const current = await db.getFirstAsync<{
+              user_id: string | null;
+              synced_at: string | null;
+            }>('SELECT user_id, synced_at FROM reports WHERE id = ?', row.id);
+            if (!current || current.user_id !== null || current.synced_at !== null) {
+              return;
+            }
+            await db.runAsync(
+              'UPDATE reports SET id = ?, report_data = ? WHERE id = ?',
+              newId,
+              dataStr,
+              row.id,
+            );
+            await db.runAsync(
+              'UPDATE sync_queue SET report_id = ? WHERE report_id = ?',
+              newId,
+              row.id,
+            );
+          });
+        }
       });
     },
   };

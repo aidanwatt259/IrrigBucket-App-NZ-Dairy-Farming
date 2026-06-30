@@ -124,7 +124,14 @@ router.post("/auth/supabase-session", async (req: Request, res: Response) => {
 
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
-  res.json({ success: true });
+
+  // Bearer (mobile) clients have no cookie jar and need the session id in the
+  // body. They opt in with `returnSid: true`. Cookie clients (web) keep using
+  // the httpOnly cookie ONLY — the sid is never placed in their response body,
+  // preserving the XSS-token-theft protection httpOnly provides.
+  const returnSid = req.body?.returnSid === true;
+  res.setHeader("Cache-Control", "no-store");
+  res.json(returnSid ? { success: true, sid } : { success: true });
 });
 
 // Clear the server session. The frontend handles Supabase signOut separately.
