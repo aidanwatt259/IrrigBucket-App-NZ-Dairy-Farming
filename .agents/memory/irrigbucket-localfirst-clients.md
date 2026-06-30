@@ -28,3 +28,19 @@ description: Non-obvious traps wiring @workspace/sync + durable adapters into th
   `Date.now()+Math.random()` id generator. This is fine in Phase 4 (sync gated OFF), but BEFORE
   Phase 5 enables sync, mobile ids MUST switch to UUIDs or every upsert will be rejected by the
   server's UUID column. Legacy migrated rows with non-UUID ids will also fail to upsert.
+
+# Expo Go won't open on a phone: owner + non-interactive dev server
+- `app.json` has `owner` (+ `extra.eas.projectId`). With an `owner` set, `expo start` wants to
+  authenticate as that account to code-sign the dev manifest, so at startup it shows an
+  interactive prompt "Log in / Proceed anonymously" (link: expo.fyi/unverified-app-expo-go).
+- The Replit mobile `dev` workflow runs non-interactively (`< /dev/null`), so the prompt can
+  never be answered → Expo Go treats the app as unverified and won't open it on a device.
+- **Key tell:** Metro still serves manifest + bundles to raw `curl`, and the Expo **web**
+  preview still renders fine — ONLY Expo Go (the phone) is blocked. So a green web preview does
+  NOT prove Expo Go works.
+- **Fix:** add `EXPO_OFFLINE=1` to the mobile `dev` script. Offline mode skips the account check
+  + prompt and serves an UNSIGNED dev manifest (logs "unable to sign manifest"), which Expo Go
+  opens as a normal anonymous dev project. Keeps `owner`/EAS intact for builds.
+- For a fully *verified* experience (no unsigned notice), instead set an `EXPO_TOKEN` secret so
+  the dev server logs in as the owner online and signs the manifest. Do NOT delete `owner` — it
+  ties EAS build/update to the account.
