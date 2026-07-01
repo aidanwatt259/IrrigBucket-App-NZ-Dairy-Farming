@@ -14,6 +14,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -71,8 +72,12 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <WizardProvider>
-                  <RootLayoutNav />
-                  <OfflineBanner />
+                  <View style={styles.appShell}>
+                    <View style={styles.appContent}>
+                      <RootLayoutNav />
+                    </View>
+                    <OfflineBanner />
+                  </View>
                 </WizardProvider>
               </AuthProvider>
             </KeyboardProvider>
@@ -82,3 +87,8 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  appShell: { flex: 1 },
+  appContent: { flex: 1 },
+});

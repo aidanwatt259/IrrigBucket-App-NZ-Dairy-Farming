@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,9 +20,12 @@ export default function PlanScreen() {
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
   const { plan, irrigatorType } = useWizard();
 
+  useEffect(() => {
+    if (!plan) router.replace('/setup');
+  }, [plan]);
+
   if (!plan) {
-    router.replace('/setup');
-    return null;
+    return <View style={[styles.root, { backgroundColor: colors.background }]} />;
   }
 
   const isPivot = irrigatorType === 'pivot';

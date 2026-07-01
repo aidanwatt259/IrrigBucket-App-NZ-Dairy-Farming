@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { KeyboardToolbar } from 'react-native-keyboard-controller';
+
 import { AppButton } from '@/components/ui/AppButton';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
@@ -22,7 +24,7 @@ export default function DataEntryScreen() {
     if (next) next.focus();
   }, []);
 
-  if (!plan) return null;
+  if (!plan) return <View style={[styles.root, { backgroundColor: colors.background }]} />;
 
   const isPivot = irrigatorType === 'pivot';
   const totalSteps = isPivot ? 6 : 5;
@@ -156,6 +158,7 @@ export default function DataEntryScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+      <KeyboardToolbar />
     </View>
   );
 }

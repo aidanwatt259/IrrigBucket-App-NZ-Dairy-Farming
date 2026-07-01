@@ -13,6 +13,7 @@ export function OfflineBanner() {
   const { isOnline } = useNetworkStatus();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'web' ? 0 : insets.bottom;
   const heightAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -29,7 +30,7 @@ export function OfflineBanner() {
   useEffect(() => {
     Animated.parallel([
       Animated.timing(heightAnim, {
-        toValue: visible ? BANNER_HEIGHT : 0,
+        toValue: visible ? BANNER_HEIGHT + bottomInset : 0,
         duration: 280,
         useNativeDriver: false,
       }),
@@ -39,9 +40,7 @@ export function OfflineBanner() {
         useNativeDriver: false,
       }),
     ]).start();
-  }, [visible]);
-
-  const topOffset = Platform.OS === 'web' ? 0 : insets.top;
+  }, [visible, bottomInset]);
 
   const background = !isOnline ? colors.accent : colors.primary;
   const foreground = !isOnline ? colors.accentForeground : colors.primaryForeground;
@@ -50,20 +49,22 @@ export function OfflineBanner() {
     ? `No connection — working offline${pending > 0 ? ` · ${pending} pending` : ''}`
     : `${pending} ${pending === 1 ? 'report' : 'reports'} saved locally`;
 
+  // Rendered in normal flow at the very bottom of the app shell so it never
+  // covers the branded header (logo / account / reports); it grows/shrinks the
+  // available content area instead of overlaying it.
   return (
     <Animated.View
       style={[
         styles.wrapper,
         {
-          top: topOffset,
           backgroundColor: background,
           height: heightAnim,
           opacity: opacityAnim,
-          pointerEvents: 'none',
         },
       ]}
+      pointerEvents="none"
     >
-      <View style={styles.inner}>
+      <View style={[styles.inner, { paddingBottom: bottomInset }]}>
         <Feather name={icon} size={13} color={foreground} />
         <Text style={[styles.text, { color: foreground }]}>
           {message}
@@ -75,14 +76,11 @@ export function OfflineBanner() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 9999,
+    width: '100%',
     overflow: 'hidden',
   },
   inner: {
-    height: BANNER_HEIGHT,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

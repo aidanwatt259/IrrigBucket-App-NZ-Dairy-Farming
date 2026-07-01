@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardToolbar } from 'react-native-keyboard-controller';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { FormField } from '@/components/ui/FormField';
@@ -11,6 +12,13 @@ import { useColors } from '@/hooks/useColors';
 const TYPE_LABELS: Record<string, string> = {
   pivot: 'Centre Pivot', lateral: 'Lateral Move', kline: 'K-Line / Pods',
   gun: 'Travelling Gun', solid: 'Solid Set / Fixed', boom: 'Roto Rainer',
+};
+
+// Parse an optional numeric field: blank or non-finite input becomes undefined
+// rather than persisting NaN.
+const optNum = (s: string): number | undefined => {
+  const n = Number(s);
+  return s.trim() !== '' && Number.isFinite(n) ? n : undefined;
 };
 
 export default function SetupScreen() {
@@ -34,14 +42,35 @@ export default function SetupScreen() {
     sprinklerSpacing: String(systemParams.sprinklerSpacing || 18),
     boomWidth: String(systemParams.boomWidth || 30),
     nozzleSpacing: String(systemParams.nozzleSpacing || 2),
+    operatingPressure: systemParams.operatingPressure != null ? String(systemParams.operatingPressure) : '',
+    revolutionTime: systemParams.revolutionTime != null ? String(systemParams.revolutionTime) : '',
+    numSprinklers: systemParams.numSprinklers != null ? String(systemParams.numSprinklers) : '',
+    flowRate: systemParams.flowRate != null ? String(systemParams.flowRate) : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Ordered list of the editable numeric fields for the current irrigator type,
+  // used to wire "press enter → jump to next box" (and the keyboard toolbar's
+  // prev/next arrows follow the same on-screen order automatically).
+  const inputRefs = useRef<Record<string, TextInput | null>>({});
+  const orderedFields = useMemo<string[]>(() => {
+    const base = ['diameter', 'targetDepth'];
+    switch (irrigatorType) {
+      case 'pivot': return [...base, 'armLength', 'spans', 'operatingPressure', 'revolutionTime', 'numSprinklers', 'flowRate'];
+      case 'lateral': return [...base, 'machineWidth'];
+      case 'kline': return [...base, 'podSpacing', 'podsPerLateral', 'klineTestMinutes', 'klineSetHours'];
+      case 'gun': return [...base, 'gunRadius', 'laneSpacing', 'gunNumBuckets'];
+      case 'solid': return [...base, 'sprinklerSpacing'];
+      case 'boom': return [...base, 'boomWidth', 'nozzleSpacing'];
+      default: return base;
+    }
+  }, [irrigatorType]);
 
   useEffect(() => {
     if (!irrigatorType) router.replace('/');
   }, [irrigatorType]);
 
-  if (!irrigatorType) return null;
+  if (!irrigatorType) return <View style={[styles.root, { backgroundColor: colors.background }]} />;
 
   const isPivot = irrigatorType === 'pivot';
   const totalSteps = isPivot ? 6 : 5;
@@ -93,10 +122,31 @@ export default function SetupScreen() {
       sprinklerSpacing: Number(values.sprinklerSpacing),
       boomWidth: Number(values.boomWidth),
       nozzleSpacing: Number(values.nozzleSpacing),
+      operatingPressure: optNum(values.operatingPressure),
+      revolutionTime: optNum(values.revolutionTime),
+      numSprinklers: optNum(values.numSprinklers),
+      flowRate: optNum(values.flowRate),
     });
     generatePlan();
     router.push('/plan');
   };
+
+  // Enter on a field jumps focus to the next field; Enter on the last field
+  // submits. Props are spread onto each FormField in `orderedFields`.
+  const focusNext = (name: string) => {
+    const i = orderedFields.indexOf(name);
+    if (i >= 0 && i < orderedFields.length - 1) {
+      inputRefs.current[orderedFields[i + 1]]?.focus();
+    } else {
+      handleNext();
+    }
+  };
+  const reg = (name: string) => ({
+    ref: (r: TextInput | null) => { inputRefs.current[name] = r; },
+    returnKeyType: (orderedFields[orderedFields.length - 1] === name ? 'done' : 'next') as 'done' | 'next',
+    onSubmitEditing: () => focusNext(name),
+    blurOnSubmit: false,
+  });
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -124,6 +174,7 @@ export default function SetupScreen() {
                 onChangeText={v => set('diameter', v)}
                 error={errors.diameter}
                 required
+                {...reg('diameter')}
               />
               <FormField
                 label="Target Application Depth (mm)"
@@ -133,6 +184,7 @@ export default function SetupScreen() {
                 onChangeText={v => set('targetDepth', v)}
                 error={errors.targetDepth}
                 required
+                {...reg('targetDepth')}
               />
             </View>
 
@@ -150,6 +202,7 @@ export default function SetupScreen() {
                     onChangeText={v => set('armLength', v)}
                     error={errors.armLength}
                     required
+                    {...reg('armLength')}
                   />
                   <FormField
                     label="Number of Spans (optional)"
@@ -157,6 +210,7 @@ export default function SetupScreen() {
                     keyboardType="numeric"
                     value={values.spans}
                     onChangeText={v => set('spans', v)}
+                    {...reg('spans')}
                   />
                   <View style={styles.toggleRow}>
                     <Text style={[styles.toggleLabel, { color: colors.foreground }]}>Has End Gun?</Text>
@@ -189,37 +243,37 @@ export default function SetupScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.mutedForeground, borderBottomColor: colors.border, marginTop: 12, fontSize: 13 }]}>
                     Optional — for report detail
                   </Text>
-                  <FormField label="Operating Pressure (bar)" keyboardType="numeric" value={values.diameter === '250' ? '' : ''} placeholder="e.g. 4.0" />
-                  <FormField label="Full Revolution Time (hours)" keyboardType="numeric" placeholder="e.g. 48" />
-                  <FormField label="Total Number of Sprinklers" keyboardType="numeric" placeholder="e.g. 120" />
-                  <FormField label="System Flow Rate (L/s)" keyboardType="numeric" placeholder="e.g. 42" />
+                  <FormField label="Operating Pressure (bar)" keyboardType="decimal-pad" value={values.operatingPressure} onChangeText={v => set('operatingPressure', v)} placeholder="e.g. 4.0" {...reg('operatingPressure')} />
+                  <FormField label="Full Revolution Time (hours)" keyboardType="decimal-pad" value={values.revolutionTime} onChangeText={v => set('revolutionTime', v)} placeholder="e.g. 48" {...reg('revolutionTime')} />
+                  <FormField label="Total Number of Sprinklers" keyboardType="numeric" value={values.numSprinklers} onChangeText={v => set('numSprinklers', v)} placeholder="e.g. 120" {...reg('numSprinklers')} />
+                  <FormField label="System Flow Rate (L/s)" keyboardType="decimal-pad" value={values.flowRate} onChangeText={v => set('flowRate', v)} placeholder="e.g. 42" {...reg('flowRate')} />
                 </>
               )}
               {irrigatorType === 'lateral' && (
-                <FormField label="Machine Width (m)" keyboardType="numeric" value={values.machineWidth} onChangeText={v => set('machineWidth', v)} error={errors.machineWidth} required />
+                <FormField label="Machine Width (m)" keyboardType="numeric" value={values.machineWidth} onChangeText={v => set('machineWidth', v)} error={errors.machineWidth} required {...reg('machineWidth')} />
               )}
               {irrigatorType === 'kline' && (
                 <>
-                  <FormField label="Pod Spacing (m)" keyboardType="numeric" value={values.podSpacing} onChangeText={v => set('podSpacing', v)} error={errors.podSpacing} required />
-                  <FormField label="Pods Per Lateral" keyboardType="numeric" value={values.podsPerLateral} onChangeText={v => set('podsPerLateral', v)} error={errors.podsPerLateral} required />
-                  <FormField label="Test Run Time (minutes)" hint="How long pods ran while buckets collected — required for application depth" keyboardType="numeric" value={values.klineTestMinutes} onChangeText={v => set('klineTestMinutes', v)} error={errors.klineTestMinutes} placeholder="e.g. 60" />
-                  <FormField label="Set Run Time (hours)" hint="How long the K-Line runs per position (commonly 12–24 hrs)" keyboardType="numeric" value={values.klineSetHours} onChangeText={v => set('klineSetHours', v)} error={errors.klineSetHours} placeholder="e.g. 24" />
+                  <FormField label="Pod Spacing (m)" keyboardType="numeric" value={values.podSpacing} onChangeText={v => set('podSpacing', v)} error={errors.podSpacing} required {...reg('podSpacing')} />
+                  <FormField label="Pods Per Lateral" keyboardType="numeric" value={values.podsPerLateral} onChangeText={v => set('podsPerLateral', v)} error={errors.podsPerLateral} required {...reg('podsPerLateral')} />
+                  <FormField label="Test Run Time (minutes)" hint="How long pods ran while buckets collected — required for application depth" keyboardType="numeric" value={values.klineTestMinutes} onChangeText={v => set('klineTestMinutes', v)} error={errors.klineTestMinutes} placeholder="e.g. 60" {...reg('klineTestMinutes')} />
+                  <FormField label="Set Run Time (hours)" hint="How long the K-Line runs per position (commonly 12–24 hrs)" keyboardType="numeric" value={values.klineSetHours} onChangeText={v => set('klineSetHours', v)} error={errors.klineSetHours} placeholder="e.g. 24" {...reg('klineSetHours')} />
                 </>
               )}
               {irrigatorType === 'gun' && (
                 <>
-                  <FormField label="Gun Wetted Radius (m)" keyboardType="numeric" value={values.gunRadius} onChangeText={v => set('gunRadius', v)} error={errors.gunRadius} required />
-                  <FormField label="Lane Spacing (m)" keyboardType="numeric" value={values.laneSpacing} onChangeText={v => set('laneSpacing', v)} error={errors.laneSpacing} required />
-                  <FormField label="Number of Buckets (optional)" hint="Leave blank to auto-calculate" keyboardType="numeric" value={values.gunNumBuckets} onChangeText={v => set('gunNumBuckets', v)} />
+                  <FormField label="Gun Wetted Radius (m)" keyboardType="numeric" value={values.gunRadius} onChangeText={v => set('gunRadius', v)} error={errors.gunRadius} required {...reg('gunRadius')} />
+                  <FormField label="Lane Spacing (m)" keyboardType="numeric" value={values.laneSpacing} onChangeText={v => set('laneSpacing', v)} error={errors.laneSpacing} required {...reg('laneSpacing')} />
+                  <FormField label="Number of Buckets (optional)" hint="Leave blank to auto-calculate" keyboardType="numeric" value={values.gunNumBuckets} onChangeText={v => set('gunNumBuckets', v)} {...reg('gunNumBuckets')} />
                 </>
               )}
               {irrigatorType === 'solid' && (
-                <FormField label="Sprinkler Spacing (m)" keyboardType="numeric" value={values.sprinklerSpacing} onChangeText={v => set('sprinklerSpacing', v)} error={errors.sprinklerSpacing} required />
+                <FormField label="Sprinkler Spacing (m)" keyboardType="numeric" value={values.sprinklerSpacing} onChangeText={v => set('sprinklerSpacing', v)} error={errors.sprinklerSpacing} required {...reg('sprinklerSpacing')} />
               )}
               {irrigatorType === 'boom' && (
                 <>
-                  <FormField label="Boom Width (m)" keyboardType="numeric" value={values.boomWidth} onChangeText={v => set('boomWidth', v)} error={errors.boomWidth} required />
-                  <FormField label="Nozzle Spacing (m)" keyboardType="decimal-pad" value={values.nozzleSpacing} onChangeText={v => set('nozzleSpacing', v)} error={errors.nozzleSpacing} required />
+                  <FormField label="Boom Width (m)" keyboardType="numeric" value={values.boomWidth} onChangeText={v => set('boomWidth', v)} error={errors.boomWidth} required {...reg('boomWidth')} />
+                  <FormField label="Nozzle Spacing (m)" keyboardType="decimal-pad" value={values.nozzleSpacing} onChangeText={v => set('nozzleSpacing', v)} error={errors.nozzleSpacing} required {...reg('nozzleSpacing')} />
                 </>
               )}
             </View>
@@ -233,6 +287,7 @@ export default function SetupScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+      <KeyboardToolbar />
     </View>
   );
 }

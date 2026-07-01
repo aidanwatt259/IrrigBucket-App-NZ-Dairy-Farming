@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
 import { useColors } from '@/hooks/useColors';
@@ -10,7 +10,10 @@ interface FormFieldProps extends TextInputProps {
   required?: boolean;
 }
 
-export function FormField({ label, hint, error, required, style, ...inputProps }: FormFieldProps) {
+export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
+  { label, hint, error, required, style, ...inputProps },
+  ref,
+) {
   const colors = useColors();
 
   return (
@@ -20,6 +23,7 @@ export function FormField({ label, hint, error, required, style, ...inputProps }
         {required && <Text style={{ color: colors.destructive }}> *</Text>}
       </Text>
       <TextInput
+        ref={ref}
         style={[
           styles.input,
           {
@@ -39,7 +43,7 @@ export function FormField({ label, hint, error, required, style, ...inputProps }
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

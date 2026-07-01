@@ -43,7 +43,7 @@ export default function ResultsScreen() {
     }
   }, [results]);
 
-  if (!plan || !results) return null;
+  if (!plan || !results) return <View style={[styles.root, { backgroundColor: colors.background }]} />;
 
   const isPivot = irrigatorType === 'pivot';
   const totalSteps = isPivot ? 6 : 5;
