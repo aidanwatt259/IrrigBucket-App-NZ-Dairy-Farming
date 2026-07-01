@@ -33,6 +33,12 @@ Forgetting #3 makes the field a silent no-op (user types it, it's discarded).
 Web (`src/pages/SystemSetup.tsx`) uses react-hook-form + zod; for optional numeric
 inputs use `z.preprocess(v => v===''||v==null ? undefined : v, z.coerce.number()....optional())`
 to avoid `z.coerce.number()` turning `''` into `0`.
+**Sharp edge:** an optional numeric with `.min(N)` where N>0 (e.g. gun `gunNumBuckets`
+min(4), pivot `spans` min(2)) that lacks this preprocess will SILENTLY block form
+submit when left blank — RHF's `handleSubmit` never calls `onSubmit`, so there's no
+navigation and (if the error `<p>` isn't rendered) no visible error. `.min(0)` fields
+and fields with a non-empty default hide the bug until the user clears them. Any
+optional numeric field with a positive min bound MUST use the preprocess.
 
 ## K-Line application depth (NZ bucket-test method)
 `rate(mm/hr) = caughtDepth / (testMinutes/60)`; `perSetDepth = rate * setHours`.

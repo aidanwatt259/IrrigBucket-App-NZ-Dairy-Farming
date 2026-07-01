@@ -1,13 +1,19 @@
+export type PressureUnit = 'kPa' | 'psi';
+
 export interface SystemParams {
   diameter: number;
   targetDepth: number;
+
+  // Common to every irrigator type
+  testRunMinutes?: number;          // how long the timed bucket test ran (minutes)
+  operatingPressure?: number;       // water input / operating pressure (value)
+  pressureUnit?: PressureUnit;      // unit the pressure was entered in
 
   // Pivot
   armLength?: number;
   spans?: number;
   hasEndGun?: string;       // 'Yes' | 'No'
   revolutionTime?: number;  // hours
-  operatingPressure?: number;
   numSprinklers?: number;
   flowRate?: number;
 
@@ -292,6 +298,40 @@ export function calcKlineApplication(
     depthDiff,
     depthStatus: depthStatusRating(depthDiff),
   };
+}
+
+// Application intensity (mm/hr) for any irrigator type:
+//   rate = caught depth (mm) / run time (hr)
+// This is the same normalisation calcKlineApplication uses, generalised so that
+// every type (pivot, lateral, gun, solid, boom) can report an intensity once a
+// timed test run has been recorded.
+export function calcApplicationRate(avgDepthMm: number, testRunMinutes?: number): number | null {
+  if (!testRunMinutes || testRunMinutes <= 0 || avgDepthMm <= 0) return null;
+  return avgDepthMm / (testRunMinutes / 60);
+}
+
+// Resolve the effective timed-test run duration (minutes) for a type. K-Line
+// stores its test duration in the more specific klineTestMinutes field, so fall
+// back to it when the generic testRunMinutes has not been captured.
+export function getEffectiveTestRunMinutes(type: string, params: SystemParams): number | undefined {
+  if (params.testRunMinutes && params.testRunMinutes > 0) return params.testRunMinutes;
+  if (type === 'kline' && params.klineTestMinutes && params.klineTestMinutes > 0) return params.klineTestMinutes;
+  return undefined;
+}
+
+export const PSI_TO_KPA = 6.89476;
+
+// Convert an entered pressure to kPa for range checks / comparisons.
+export function pressureToKpa(value?: number, unit?: PressureUnit): number | null {
+  if (value == null || !isFinite(value) || value <= 0) return null;
+  return unit === 'psi' ? value * PSI_TO_KPA : value;
+}
+
+// Display the operating pressure exactly as the user entered it (value + unit).
+export function formatPressure(params: SystemParams): string | null {
+  const { operatingPressure, pressureUnit } = params;
+  if (operatingPressure == null || !isFinite(operatingPressure) || operatingPressure <= 0) return null;
+  return `${operatingPressure} ${pressureUnit ?? 'kPa'}`;
 }
 
 export function sectionsFromPivot(pivotSections: PivotSection[]): SectionDefinition[] {

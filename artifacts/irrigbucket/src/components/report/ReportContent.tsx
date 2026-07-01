@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import {
   SystemParams, OperationData, Plan, SectionDefinition, TestResults,
 } from '@/lib/calculations';
-import { populationStdDev, calcKlineApplication } from '@/lib/calculations';
+import {
+  populationStdDev, calcKlineApplication, calcApplicationRate,
+  getEffectiveTestRunMinutes, formatPressure,
+} from '@/lib/calculations';
 
 type DuStatus = 'good' | 'fair' | 'poor';
 
@@ -97,11 +100,18 @@ export function ReportContent({
   const bucketAreaMm2 = Math.PI * Math.pow(systemParams.diameter / 2, 2);
   const bucketAreaM2 = bucketAreaMm2 / 1e6;
 
+  // Timed test-run duration (minutes) applicable to any type; K-Line falls back
+  // to its klineTestMinutes field via getEffectiveTestRunMinutes.
+  const effectiveMinutes = getEffectiveTestRunMinutes(irrigatorType ?? '', systemParams);
+  const rateFromRun = calcApplicationRate(results.avgDepth, effectiveMinutes);
+
   const overallIntensity = klineApp
     ? Number(klineApp.applicationRate.toFixed(2))
-    : (revolutionTime && results.avgDepth > 0)
-      ? Number((results.avgDepth / revolutionTime).toFixed(2))
-      : null;
+    : rateFromRun != null
+      ? Number(rateFromRun.toFixed(2))
+      : (revolutionTime && results.avgDepth > 0)
+        ? Number((results.avgDepth / revolutionTime).toFixed(2))
+        : null;
 
   const chartData = results.allVolumes
     .map((vol, i) => {
@@ -121,9 +131,13 @@ export function ReportContent({
 
   type LogEntry = [string, string | number | undefined | null];
 
+  const pressureDisplay = formatPressure(systemParams);
+
   const loggedDataPivot: LogEntry[] = [
     ['Pivot Length (m)', plan?.armLength],
+    ['Operating Pressure', pressureDisplay],
     ['Inlet Pressure (kPa)', operationData.inletPressure],
+    ['Test Run Time (min)', effectiveMinutes],
     ['Speed (m/min)', operationData.actualSpeed],
     ['Wetted Width (m)', operationData.wettedWidth],
     ['Speed Test Time', operationData.speedTestTime],
@@ -140,6 +154,8 @@ export function ReportContent({
     ['Irrigation Type', irrigatorLabel(irrigatorType)],
     ['Bucket Diameter (mm)', systemParams.diameter],
     ['Target Depth (mm)', systemParams.targetDepth],
+    ['Operating Pressure', pressureDisplay],
+    ['Test Run Time (min)', effectiveMinutes],
     ['Bucket Open Area (m²)', bucketAreaM2.toFixed(5)],
     ['Assessor', operationData.assessorName],
     ['Farm', operationData.farmName],
@@ -294,9 +310,12 @@ export function ReportContent({
 
                 {/* Section rows */}
                 {results.sections.map((sec, i) => {
-                  const secIntensity = (revolutionTime && sec.avgDepth > 0)
-                    ? Number((sec.avgDepth / revolutionTime).toFixed(2))
-                    : null;
+                  const secRate = calcApplicationRate(sec.avgDepth, effectiveMinutes);
+                  const secIntensity = secRate != null
+                    ? Number(secRate.toFixed(2))
+                    : (revolutionTime && sec.avgDepth > 0)
+                      ? Number((sec.avgDepth / revolutionTime).toFixed(2))
+                      : null;
                   return (
                     <tr key={i} className="border-b border-slate-100 last:border-0">
                       <td className="px-4 py-2.5 text-slate-700 pl-7">{getDisplayName(sec.name)}</td>
