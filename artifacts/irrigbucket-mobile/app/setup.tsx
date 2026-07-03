@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { KeyboardToolbar } from 'react-native-keyboard-controller';
+import { AppKeyboardToolbar } from '@/components/ui/AppKeyboardToolbar';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { FormField } from '@/components/ui/FormField';
@@ -287,7 +287,7 @@ export default function SetupScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-      <KeyboardToolbar />
+      <AppKeyboardToolbar />
     </View>
   );
 }

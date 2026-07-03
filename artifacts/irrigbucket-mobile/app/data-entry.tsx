@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { KeyboardToolbar } from 'react-native-keyboard-controller';
+import { AppKeyboardToolbar } from '@/components/ui/AppKeyboardToolbar';
 
 import { AppButton } from '@/components/ui/AppButton';
 import { StepHeader } from '@/components/ui/StepHeader';
@@ -158,7 +158,7 @@ export default function DataEntryScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
-      <KeyboardToolbar />
+      <AppKeyboardToolbar />
     </View>
   );
 }
