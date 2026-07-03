@@ -111,3 +111,18 @@ export async function serverSignOut(sid: string): Promise<void> {
     // Network failure on sign-out is non-fatal — the local token is cleared anyway.
   }
 }
+
+/**
+ * Permanently delete the account server-side. Unlike sign-out this REJECTS on
+ * failure, so the caller only wipes local data once the server confirms the
+ * account is gone (never leave a live server account with no local copy).
+ */
+export async function serverDeleteAccount(sid: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/auth/account`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${sid}` },
+  });
+  if (!res.ok) {
+    throw new Error('Could not delete your account. Please try again.');
+  }
+}

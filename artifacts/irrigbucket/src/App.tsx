@@ -8,6 +8,7 @@ import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { initSyncEngine } from "@/lib/syncEngine";
 
 import Home from "@/pages/Home";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import SystemSetup from "@/pages/SystemSetup";
 import TestPlan from "@/pages/TestPlan";
 import Operation from "@/pages/Operation";
@@ -37,6 +38,7 @@ function Router() {
       <ScrollToTop />
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/privacy" component={PrivacyPolicy} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={Signup} />
         <Route path="/forgot-password" component={ForgotPassword} />

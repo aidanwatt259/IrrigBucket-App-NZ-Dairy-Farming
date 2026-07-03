@@ -51,7 +51,8 @@ function syncSummary(status: SyncStatus): { icon: keyof typeof Feather.glyphMap;
 export default function AccountScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { status, user, busy, error, signIn, signOut, clearError } = useAuth();
+  const { status, user, busy, error, signIn, signOut, deleteAccount, clearError } =
+    useAuth();
   const sync = useSyncStatus();
 
   const topPad = Platform.OS === 'web' ? 24 : insets.top;
@@ -59,6 +60,16 @@ export default function AccountScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const handleDelete = async () => {
+    try {
+      await deleteAccount();
+      router.back();
+    } catch {
+      // Error is surfaced via the auth context's `error`; keep the panel open.
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email.trim() || !password || busy) return;
@@ -146,6 +157,76 @@ export default function AccountScreen() {
                   </>
                 )}
               </TouchableOpacity>
+
+              {confirmingDelete ? (
+                <View
+                  style={[
+                    styles.deleteConfirm,
+                    { borderColor: colors.destructive, backgroundColor: colors.destructive + '0d' },
+                  ]}
+                >
+                  <Text style={[styles.deleteTitle, { color: colors.foreground }]}>
+                    Delete your account?
+                  </Text>
+                  <Text style={[styles.deleteBody, { color: colors.mutedForeground }]}>
+                    This permanently deletes your account and all your saved reports from our servers
+                    and this device. This can{'\u2019'}t be undone.
+                  </Text>
+                  {!!error && (
+                    <View
+                      style={[
+                        styles.errorBox,
+                        { backgroundColor: colors.destructive + '12', marginTop: 12, marginBottom: 0 },
+                      ]}
+                    >
+                      <Feather name="alert-circle" size={15} color={colors.destructive} />
+                      <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => void handleDelete()}
+                    disabled={busy}
+                    activeOpacity={0.8}
+                    testID="confirm-delete-account"
+                    style={[
+                      styles.deleteConfirmBtn,
+                      { backgroundColor: colors.destructive, opacity: busy ? 0.6 : 1 },
+                    ]}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color={colors.destructiveForeground} />
+                    ) : (
+                      <Text style={[styles.deleteConfirmText, { color: colors.destructiveForeground }]}>
+                        Permanently delete
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setConfirmingDelete(false);
+                      if (error) clearError();
+                    }}
+                    disabled={busy}
+                    activeOpacity={0.7}
+                    testID="cancel-delete-account"
+                    style={styles.deleteCancelBtn}
+                  >
+                    <Text style={[styles.deleteCancelText, { color: colors.foreground }]}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setConfirmingDelete(true)}
+                  disabled={busy}
+                  activeOpacity={0.7}
+                  testID="delete-account-button"
+                  style={styles.deleteLink}
+                >
+                  <Text style={[styles.deleteLinkText, { color: colors.mutedForeground }]}>
+                    Delete account
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <View>
@@ -297,6 +378,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   signOutText: { fontSize: 16, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
+
+  deleteLink: { alignItems: 'center', justifyContent: 'center', height: 44, marginTop: 12 },
+  deleteLinkText: { fontSize: 14, fontFamily: 'Inter_500Medium', letterSpacing: -0.1 },
+  deleteConfirm: { marginTop: 16, borderWidth: 1.5, borderRadius: 16, padding: 18 },
+  deleteTitle: { fontSize: 16, fontFamily: 'Outfit_700Bold', marginBottom: 6, letterSpacing: -0.2 },
+  deleteBody: { fontSize: 13.5, fontFamily: 'Inter_400Regular', lineHeight: 20 },
+  deleteConfirmBtn: {
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  deleteConfirmText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
+  deleteCancelBtn: { height: 46, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  deleteCancelText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
 
   introBlock: { alignItems: 'center', marginBottom: 28 },
   introIcon: {

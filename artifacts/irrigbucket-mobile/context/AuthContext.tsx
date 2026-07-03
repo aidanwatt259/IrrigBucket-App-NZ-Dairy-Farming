@@ -10,6 +10,7 @@ import React, {
 
 import {
   exchangeForServerSession,
+  serverDeleteAccount,
   serverSignOut,
   supabasePasswordSignIn,
 } from '@/lib/auth/authApi';
@@ -19,7 +20,12 @@ import {
   loadStoredToken,
   persistToken,
 } from '@/lib/auth/token';
-import { disableSync, enableSync, initSync } from '@/lib/sync/syncEngine';
+import {
+  disableSync,
+  enableSync,
+  initSync,
+  purgeAllLocalData,
+} from '@/lib/sync/syncEngine';
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -36,6 +42,7 @@ interface AuthContextValue {
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -146,11 +153,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    const sid = getStoredToken();
+    if (!sid) {
+      setError('Please reconnect to the internet to delete your account.');
+      throw new Error('No active session to delete.');
+    }
+    setBusy(true);
+    setError(null);
+    let serverDeleted = false;
+    try {
+      // Stop draining before the destructive call so no sync races the wipe.
+      await disableSync();
+      // Rejects on failure → we only wipe locally once the server confirms the
+      // account (and all its data) is gone.
+      await serverDeleteAccount(sid);
+      serverDeleted = true;
+      await purgeAllLocalData();
+      await clearStoredToken();
+      setUser(null);
+      setStatus('signedOut');
+    } catch (e) {
+      if (serverDeleted) {
+        // The account is already gone server-side; re-enabling sync would drain
+        // the outbox against a now-invalid sid and recreate reports as anonymous
+        // rows. Force the local session closed instead (local reports are kept,
+        // as on sign-out; a reinstall clears them).
+        await clearStoredToken().catch(() => {});
+        setUser(null);
+        setStatus('signedOut');
+        setError(
+          'Your account was deleted, but clearing local data failed. Reinstall the app to remove any reports left on this device.',
+        );
+      } else {
+        // Deletion never reached the server (e.g. offline). Restore the syncing
+        // session so the user keeps working with their data intact.
+        await enableSync().catch(() => {});
+        setError(e instanceof Error ? e.message : 'Could not delete your account.');
+      }
+      throw e;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   return (
     <AuthContext.Provider
-      value={{ status, user, busy, error, signIn, signOut, clearError }}
+      value={{ status, user, busy, error, signIn, signOut, deleteAccount, clearError }}
     >
       {children}
     </AuthContext.Provider>

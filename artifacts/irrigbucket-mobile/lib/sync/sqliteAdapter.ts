@@ -28,6 +28,11 @@ export type SqliteAdapter<TData> = StorageAdapter<TData> & {
    * Idempotent: rows that already carry UUID ids are skipped.
    */
   rekeyAnonymousIds(makeId: () => string): Promise<void>;
+  /**
+   * Wipe ALL local reports and the entire outbox. Used by account deletion,
+   * after the server has removed the account's data, to leave no local copy.
+   */
+  purgeAll(): Promise<void>;
 };
 
 interface ReportRow {
@@ -275,6 +280,15 @@ export async function createSqliteAdapter<TData = Record<string, unknown>>(): Pr
         await db.withTransactionAsync(async () => {
           await db.runAsync('DELETE FROM reports WHERE id = ?', reportId);
           await db.runAsync('DELETE FROM sync_queue WHERE report_id = ?', reportId);
+        });
+      });
+    },
+
+    purgeAll() {
+      return serial(async () => {
+        await db.withTransactionAsync(async () => {
+          await db.runAsync('DELETE FROM sync_queue');
+          await db.runAsync('DELETE FROM reports');
         });
       });
     },

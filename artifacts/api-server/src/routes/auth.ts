@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, sessionsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { supabase } from "../lib/supabase";
 import {
   clearSession,
@@ -139,6 +140,48 @@ router.get("/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);
   await clearSession(res, sid);
   res.redirect("/");
+});
+
+// Permanently delete the authenticated user's account and ALL associated data.
+// Required by the Apple App Store (Guideline 5.1.1(v)) and Google Play for apps
+// that let users create an account. Unlike DELETE /reports/:id (a recoverable
+// soft-delete), this is an irreversible hard delete.
+router.delete("/auth/account", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  // 1. Hard-delete every user-owned row so no PII lingers in the database.
+  for (const table of ["reports", "help_requests", "feedback"] as const) {
+    const { error } = await supabase.from(table).delete().eq("user_id", userId);
+    if (error) {
+      console.error(`Failed to delete ${table} during account deletion:`, error);
+      res.status(500).json({ error: "Failed to delete account data" });
+      return;
+    }
+  }
+
+  // 2. Remove the local user mirror and EVERY session for this user (all
+  //    devices), so no stale sid can authenticate as the deleted account.
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
+  await db
+    .delete(sessionsTable)
+    .where(sql`${sessionsTable.sess} -> 'user' ->> 'id' = ${userId}`);
+
+  // 3. Delete the Supabase Auth identity itself (login + email). Best-effort:
+  //    the account's data is already gone, so a failure here must not strand the
+  //    user with an account they cannot delete — log it and still succeed.
+  const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+  if (authError) {
+    console.error("Failed to delete Supabase Auth user:", authError);
+  }
+
+  // 4. Clear the web session cookie (no-op for bearer/mobile clients).
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true });
 });
 
 export default router;

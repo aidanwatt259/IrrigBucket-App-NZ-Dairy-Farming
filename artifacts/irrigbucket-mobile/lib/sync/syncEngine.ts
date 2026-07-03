@@ -218,6 +218,19 @@ export async function disableSync(): Promise<void> {
   applyOnline();
 }
 
+/**
+ * Permanently wipe ALL local reports and the outbox. Used by account deletion
+ * once the server has removed the account's data. Drops the engine offline
+ * first so no drain races the wipe, then resets status to a clean baseline.
+ */
+export async function purgeAllLocalData(): Promise<void> {
+  await ensureReady();
+  authed = false;
+  applyOnline();
+  await adapter!.purgeAll();
+  emit({ state: 'offline', pending: 0, lastError: null });
+}
+
 /** Persist + enqueue a saved report through the engine. */
 export async function saveReport(saved: SavedReport): Promise<void> {
   await ensureReady();

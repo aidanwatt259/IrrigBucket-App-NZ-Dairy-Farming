@@ -1,7 +1,7 @@
 # Memory Index
 
 - [IrrigBucket architecture](irrigbucket-architecture.md) — JSON-blob persistence (no DB migration for new SystemParams fields); derived metrics live in the report layer; mobile setup wiring has 4 touch-points.
-- [IrrigBucket store submission](store-submission.md) — store-readiness: CORS is safe (SameSite=Lax cookie), blockers = missing privacy policy + in-app account deletion; deps are dev-only.
+- [IrrigBucket store submission](store-submission.md) — CORS is safe (SameSite=Lax cookie), no runtime perms/trackers; privacy page + in-app account delete now built; after a successful server delete never re-enable sync (resurrects data as anon rows); contact email is a placeholder, expo-location unused.
 - [Testing the Expo mobile artifact](testing-multi-artifact.md) — path `/` routes to the WEB app; e2e/screenshots must navigate to the absolute `$REPLIT_EXPO_DEV_DOMAIN` URL to hit the mobile app.
 - [IrrigBucket build & typecheck hygiene](irrigbucket-build-typecheck.md) — referenced libs need a built gitignored dist (TS6306/TS6305); isAdmin augmented at auth boundary not generated code; 7 green gates; anon-reports security follow-up.
 - [IrrigBucket mobile auth + sync gating](irrigbucket-mobile-auth-sync.md) — /api/auth/user returns {user:null} 200 (not throw) for bad sid; rekey anon ids to UUID before push; persist ONLY sid; sign-out uses a token-epoch fence in the mobile transport.
