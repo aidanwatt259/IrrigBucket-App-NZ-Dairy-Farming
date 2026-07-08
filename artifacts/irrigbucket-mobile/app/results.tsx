@@ -82,8 +82,8 @@ export default function ResultsScreen() {
                 { label: 'Avg Depth Applied', value: `${results.avgDepth.toFixed(1)} mm`, status: results.depthStatus },
                 { label: 'Target Depth', value: `${results.targetDepth} mm`, status: null },
                 { label: 'Depth Deviation', value: `${results.depthDiff.toFixed(1)}%`, status: results.depthStatus },
-                { label: 'Avg Volume', value: `${(results.avgVolume * 1000).toFixed(0)} mL`, status: null },
-                { label: 'Std Dev', value: `${(results.stdDev * 1000).toFixed(1)} mL`, status: null },
+                { label: 'Avg Volume', value: `${results.avgVolume.toFixed(0)} mL`, status: null },
+                { label: 'Std Dev', value: `${results.stdDev.toFixed(1)} mL`, status: null },
                 { label: 'Buckets Used', value: `${results.validVolumes.length}`, status: null },
               ]
           ).map((item, i) => (

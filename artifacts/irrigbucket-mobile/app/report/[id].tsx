@@ -91,8 +91,8 @@ export default function ReportDetailScreen() {
                 { label: 'Avg Depth Applied', value: `${results.avgDepth.toFixed(1)} mm` },
                 { label: 'Target Depth', value: `${results.targetDepth} mm` },
                 { label: 'Depth Deviation', value: `${results.depthDiff.toFixed(1)}%` },
-                { label: 'Avg Volume', value: `${(results.avgVolume * 1000).toFixed(0)} mL` },
-                { label: 'Std Dev', value: `${(results.stdDev * 1000).toFixed(1)} mL` },
+                { label: 'Avg Volume', value: `${results.avgVolume.toFixed(0)} mL` },
+                { label: 'Std Dev', value: `${results.stdDev.toFixed(1)} mL` },
                 { label: 'Buckets Used', value: `${results.validVolumes.length}` },
               ]
           ).map((item, i) => (
