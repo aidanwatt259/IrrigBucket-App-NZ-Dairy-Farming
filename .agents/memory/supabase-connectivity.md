@@ -22,4 +22,6 @@ description: How to reach the IrrigBucket Supabase DB for DDL/verification from 
 - Reusable runners live in `scripts/`: `apply-supabase-migration.mjs` + `supabase-conn.mjs` (pooler pg path, for when a valid pooler URL is in env), and `verify-reports-rest.mjs` (service-role REST path, always works).
 
 ## 2026-08-04
-- REST host szlukdnwkmnwlkfritpl.supabase.co no longer resolves (general internet fine) — project likely paused/deleted. All Supabase-backed features silently blocked until user restores it; junk-test-row cleanup deferred (follow-up task proposed).
+- Project was auto-paused (free tier). User restored it via dashboard. DNS and REST resumed immediately after.
+- Post-restore cleanup: deleted 1 junk E2E row (id `legacy-zx7k9q`, farm "Farm zx7k9q"). No "Fernvale Farm" / "John Smith" seeds existed in this project. 9 rows remain (Riverdale real data, blank drafts, 1 smoke-check row).
+- Free-tier projects auto-pause after ~7 days of inactivity — keep this in mind if sync fails again.
