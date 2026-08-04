@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { supabase } from "../lib/supabase.js";
+import { supabase, respondSupabaseError } from "../lib/supabase.js";
 
 const router: IRouter = Router();
 
@@ -22,8 +22,10 @@ router.post("/feedback", async (req, res) => {
     .single();
 
   if (error || !row) {
-    console.error("Supabase insert error:", error);
-    res.status(500).json({ error: "Failed to submit feedback" });
+    respondSupabaseError(res, error, "Supabase insert error:", {
+      status: 500,
+      error: "Failed to submit feedback",
+    });
     return;
   }
 

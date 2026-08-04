@@ -1,7 +1,11 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
-import { supabase } from "../lib/supabase.js";
+import {
+  supabase,
+  respondSupabaseError,
+  respondIfUnavailable,
+} from "../lib/supabase.js";
 import { isAdmin } from "./reports.js";
 
 const router: IRouter = Router();
@@ -37,8 +41,10 @@ router.get("/admin/reports", requireAdmin, async (_req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase error:", error);
-    res.status(500).json({ error: "Failed to fetch reports" });
+    respondSupabaseError(res, error, "Supabase error:", {
+      status: 500,
+      error: "Failed to fetch reports",
+    });
     return;
   }
 
@@ -75,8 +81,10 @@ router.get("/admin/help-requests", requireAdmin, async (_req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase error:", error);
-    res.status(500).json({ error: "Failed to fetch help requests" });
+    respondSupabaseError(res, error, "Supabase error:", {
+      status: 500,
+      error: "Failed to fetch help requests",
+    });
     return;
   }
 
@@ -110,6 +118,7 @@ router.patch<{ id: string }>("/admin/help-requests/:id/resolve", requireAdmin, a
     .single();
 
   if (error || !updated) {
+    if (respondIfUnavailable(res, error)) return;
     res.status(404).json({ error: "Help request not found" });
     return;
   }
@@ -135,8 +144,10 @@ router.get("/admin/feedback", requireAdmin, async (_req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase error:", error);
-    res.status(500).json({ error: "Failed to fetch feedback" });
+    respondSupabaseError(res, error, "Supabase error:", {
+      status: 500,
+      error: "Failed to fetch feedback",
+    });
     return;
   }
 

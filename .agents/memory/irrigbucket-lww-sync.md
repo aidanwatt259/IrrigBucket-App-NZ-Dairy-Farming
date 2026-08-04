@@ -107,3 +107,7 @@ while a create is in flight) is NOT flushed by the same `drain()` call — its
 `autoSync:true` (each enqueue triggers a background drain, so the loop continues).
 **How to apply:** in tests with `autoSync:false`, drain in a loop until the outbox
 empties to model production; don't assume one `drain()` flushes a mid-drain enqueue.
+
+## Supabase-unreachable handling (auto-pause)
+- API routes classify unreachable-Supabase errors (fetch failed / 5xx codes / paused project) via `isSupabaseUnavailable` in the api-server supabase lib and answer **503 `{code:"SYNC_UNAVAILABLE"}`** instead of 500; `GET /api/health` pings Supabase (5s timeout) for monitoring.
+- Clients don't parse the 503 specially: any transport throw puts the sync engine in `state:'error'` with items pending, and both banners (web OfflineIndicator, mobile OfflineBanner) show "Sync unavailable — data saved locally" on `state==='error' && pending>0`.

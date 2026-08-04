@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { SubmitHelpRequestBody } from "@workspace/api-zod";
-import { supabase } from "../lib/supabase.js";
+import { supabase, respondSupabaseError } from "../lib/supabase.js";
 
 const router: IRouter = Router();
 
@@ -25,8 +25,10 @@ router.post("/help-requests", async (req, res) => {
     .single();
 
   if (error || !helpRequest) {
-    console.error("Supabase insert error:", error);
-    res.status(500).json({ error: "Failed to submit help request" });
+    respondSupabaseError(res, error, "Supabase insert error:", {
+      status: 500,
+      error: "Failed to submit help request",
+    });
     return;
   }
 

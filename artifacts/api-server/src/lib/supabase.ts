@@ -80,6 +80,84 @@ export type Database = {
   };
 };
 
+/**
+ * Detect Supabase errors caused by the project being unreachable — most
+ * commonly the free-tier project auto-pausing after inactivity, but also DNS
+ * failures, connection refusals, and gateway timeouts. These are transient
+ * infrastructure failures, not client mistakes, so routes should surface them
+ * as 503 "sync unavailable" rather than a generic 500.
+ */
+export function isSupabaseUnavailable(error: unknown): boolean {
+  if (!error) return false;
+  const message =
+    typeof error === "string"
+      ? error
+      : ((error as { message?: unknown }).message?.toString() ?? "");
+  const code = String((error as { code?: unknown })?.code ?? "");
+  // Node fetch / undici network-level failures and gateway-level HTTP errors.
+  if (
+    /fetch failed|network|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|EHOSTUNREACH|UND_ERR|aborted|timeout|socket|Bad Gateway|Service Unavailable|Gateway Timeout|project is paused|upstream/i.test(
+      message,
+    )
+  ) {
+    return true;
+  }
+  // PostgREST relays gateway failures with 5xx numeric codes; a paused
+  // project's REST endpoint typically responds 540/503.
+  if (/^5\d\d$/.test(code)) return true;
+  if (["ENOTFOUND", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EAI_AGAIN"].includes(code)) {
+    return true;
+  }
+  return false;
+}
+
+/** JSON body routes return when the cloud database is unreachable. */
+export const SYNC_UNAVAILABLE_BODY = {
+  error:
+    "Sync unavailable — the cloud database is unreachable. Your data is safe on this device and will sync when the service is back.",
+  code: "SYNC_UNAVAILABLE",
+} as const;
+
+/**
+ * Standard route error responder for Supabase failures: logs the error, then
+ * answers 503 + SYNC_UNAVAILABLE when the database is unreachable (paused /
+ * network failure) or the given fallback status/message otherwise.
+ */
+export function respondSupabaseError(
+  res: {
+    status: (code: number) => { json: (body: unknown) => unknown };
+  },
+  error: unknown,
+  logLabel: string,
+  fallback: { status: number; error: string },
+): void {
+  console.error(logLabel, error);
+  if (isSupabaseUnavailable(error)) {
+    res.status(503).json(SYNC_UNAVAILABLE_BODY);
+    return;
+  }
+  res.status(fallback.status).json({ error: fallback.error });
+}
+
+/**
+ * When the error indicates Supabase is unreachable, respond 503 +
+ * SYNC_UNAVAILABLE and return true; otherwise return false so the caller can
+ * keep its normal error path (e.g. a 404 for a missing row).
+ */
+export function respondIfUnavailable(
+  res: {
+    status: (code: number) => { json: (body: unknown) => unknown };
+  },
+  error: unknown,
+): boolean {
+  if (isSupabaseUnavailable(error)) {
+    console.error("Supabase unavailable:", error);
+    res.status(503).json(SYNC_UNAVAILABLE_BODY);
+    return true;
+  }
+  return false;
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   auth: {
     // Disable Supabase Auth on the server-side client — we handle auth ourselves.

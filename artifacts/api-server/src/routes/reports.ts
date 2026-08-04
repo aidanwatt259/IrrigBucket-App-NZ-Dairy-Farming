@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
 import { SaveReportBody } from "@workspace/api-zod";
-import { supabase } from "../lib/supabase.js";
+import {
+  supabase,
+  respondSupabaseError,
+  respondIfUnavailable,
+} from "../lib/supabase.js";
 import { decideReportUpsert } from "../lib/reportUpsert.js";
 
 const router: IRouter = Router();
@@ -40,8 +44,10 @@ router.post("/reports", async (req, res) => {
       .maybeSingle();
 
     if (error) {
-      console.error("Supabase lookup error:", error);
-      res.status(500).json({ error: "Failed to save report" });
+      respondSupabaseError(res, error, "Supabase lookup error:", {
+        status: 500,
+        error: "Failed to save report",
+      });
       return;
     }
 
@@ -70,8 +76,10 @@ router.post("/reports", async (req, res) => {
       .single();
 
     if (error || !current) {
-      console.error("Supabase fetch error:", error);
-      res.status(500).json({ error: "Failed to save report" });
+      respondSupabaseError(res, error, "Supabase fetch error:", {
+        status: 500,
+        error: "Failed to save report",
+      });
       return;
     }
 
@@ -113,8 +121,10 @@ router.post("/reports", async (req, res) => {
           return;
         }
       }
-      console.error("Supabase insert error:", error);
-      res.status(500).json({ error: "Failed to save report" });
+      respondSupabaseError(res, error, "Supabase insert error:", {
+        status: 500,
+        error: "Failed to save report",
+      });
       return;
     }
 
@@ -141,8 +151,10 @@ router.post("/reports", async (req, res) => {
     .maybeSingle();
 
   if (error) {
-    console.error("Supabase update error:", error);
-    res.status(500).json({ error: "Failed to save report" });
+    respondSupabaseError(res, error, "Supabase update error:", {
+      status: 500,
+      error: "Failed to save report",
+    });
     return;
   }
 
@@ -172,8 +184,10 @@ router.get("/reports", async (req, res) => {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase select error:", error);
-    res.status(500).json({ error: "Failed to fetch reports" });
+    respondSupabaseError(res, error, "Supabase select error:", {
+      status: 500,
+      error: "Failed to fetch reports",
+    });
     return;
   }
 
@@ -190,6 +204,7 @@ router.get("/reports/:id", async (req, res) => {
     .single();
 
   if (error || !report) {
+    if (respondIfUnavailable(res, error)) return;
     res.status(404).json({ error: "Report not found" });
     return;
   }
@@ -220,6 +235,7 @@ router.delete("/reports/:id", async (req, res) => {
     .single();
 
   if (fetchError || !report) {
+    if (respondIfUnavailable(res, fetchError)) return;
     res.status(404).json({ error: "Report not found" });
     return;
   }
@@ -235,8 +251,10 @@ router.delete("/reports/:id", async (req, res) => {
     .eq("id", id);
 
   if (updateError) {
-    console.error("Supabase soft-delete error:", updateError);
-    res.status(500).json({ error: "Failed to delete report" });
+    respondSupabaseError(res, updateError, "Supabase soft-delete error:", {
+      status: 500,
+      error: "Failed to delete report",
+    });
     return;
   }
 
@@ -258,7 +276,10 @@ router.patch("/reports/:id/restore", async (req, res) => {
     .eq("id", id);
 
   if (error) {
-    res.status(500).json({ error: "Failed to restore report" });
+    respondSupabaseError(res, error, "Supabase restore error:", {
+      status: 500,
+      error: "Failed to restore report",
+    });
     return;
   }
 

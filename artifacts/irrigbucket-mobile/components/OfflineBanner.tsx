@@ -18,14 +18,20 @@ export function OfflineBanner() {
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   const [pending, setPending] = useState(() => getStatus().pending);
+  const [syncErrored, setSyncErrored] = useState(() => getStatus().state === 'error');
 
   useEffect(() => {
     setPending(getStatus().pending);
-    return subscribeStatus((status) => setPending(status.pending));
+    setSyncErrored(getStatus().state === 'error');
+    return subscribeStatus((status) => {
+      setPending(status.pending);
+      setSyncErrored(status.state === 'error');
+    });
   }, []);
 
   // Offline takes priority; otherwise surface unsynced work saved locally.
   const visible = !isOnline || pending > 0;
+  const showSyncError = isOnline && syncErrored && pending > 0;
 
   useEffect(() => {
     Animated.parallel([
@@ -42,12 +48,15 @@ export function OfflineBanner() {
     ]).start();
   }, [visible, bottomInset]);
 
-  const background = !isOnline ? colors.accent : colors.primary;
-  const foreground = !isOnline ? colors.accentForeground : colors.primaryForeground;
-  const icon = !isOnline ? 'wifi-off' : 'upload-cloud';
+  const background = !isOnline || showSyncError ? colors.accent : colors.primary;
+  const foreground =
+    !isOnline || showSyncError ? colors.accentForeground : colors.primaryForeground;
+  const icon = !isOnline ? 'wifi-off' : showSyncError ? 'cloud-off' : 'upload-cloud';
   const message = !isOnline
     ? `No connection — working offline${pending > 0 ? ` · ${pending} pending` : ''}`
-    : `${pending} ${pending === 1 ? 'report' : 'reports'} saved locally`;
+    : showSyncError
+      ? 'Sync unavailable — data saved locally'
+      : `${pending} ${pending === 1 ? 'report' : 'reports'} saved locally`;
 
   // Rendered in normal flow at the very bottom of the app shell so it never
   // covers the branded header (logo / account / reports); it grows/shrinks the
