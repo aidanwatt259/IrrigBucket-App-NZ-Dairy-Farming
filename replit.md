@@ -43,6 +43,18 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
 - **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
 
+## Test data (keep out of production!)
+
+E2E/smoke checks must never leave rows in the production Supabase database. Two mechanisms:
+
+1. **Isolated test DB (preferred)**: run the API server with `NODE_ENV=test` and set `SUPABASE_TEST_URL` + `SUPABASE_TEST_SERVICE_ROLE_KEY` to a dedicated test Supabase project — `artifacts/api-server/src/lib/supabase.ts` picks them up automatically.
+2. **Tag + auto-teardown (when no test DB is configured)**: any test-created row MUST be tagged:
+   - reports: `farm_name` starts with `E2E-`, or `user_id` = reserved test UUID `00000000-0000-4000-8000-000000000e2e`
+   - help_requests: `description` starts with `[E2E]`
+   - feedback: `message` starts with `[E2E]`
+
+   Then run `pnpm run cleanup:test-data` (or `node scripts/cleanup-test-data.mjs`, add `--dry-run` to preview) as the teardown step — it deletes all tagged rows via the service-role PostgREST API. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
+
 ## Root Scripts
 
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it

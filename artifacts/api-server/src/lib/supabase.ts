@@ -1,10 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
+// Test isolation: when running under NODE_ENV=test, prefer a dedicated test
+// Supabase project (SUPABASE_TEST_URL / SUPABASE_TEST_SERVICE_ROLE_KEY) so
+// integration tests never touch production data. Falls back to the regular
+// vars when no test project is configured — in that case tests MUST tag rows
+// per the test-data convention (see replit.md) and run
+// `node scripts/cleanup-test-data.mjs` on teardown.
+const isTestEnv = process.env.NODE_ENV === "test";
+const supabaseUrl =
+  (isTestEnv ? process.env.SUPABASE_TEST_URL : undefined) ??
+  process.env.SUPABASE_URL;
 // Use the service role key so the server can bypass Row Level Security.
 // The anon key is subject to RLS policies which block server-side writes.
 const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  (isTestEnv ? process.env.SUPABASE_TEST_SERVICE_ROLE_KEY : undefined) ??
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(

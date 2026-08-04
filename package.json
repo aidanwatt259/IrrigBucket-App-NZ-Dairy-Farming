@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.26.1",
+  "scripts": {
+    "cleanup:test-data": "node scripts/cleanup-test-data.mjs"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0"
   },
