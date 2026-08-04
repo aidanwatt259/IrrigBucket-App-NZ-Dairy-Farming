@@ -157,6 +157,16 @@ Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucke
 
 **DU thresholds:** ≥80% Pass, 65–79% Attention, <65% Fail
 
+## Uptime monitoring (cloud sync alerts)
+
+A scheduled GitHub Actions workflow (`.github/workflows/health-check.yml`) pings the deployed API's deep health check `https://irrigbucket.co.nz/api/health` every 10 minutes:
+
+- **Keeps Supabase awake**: the ping queries the database, so the free-tier Supabase project never auto-pauses from inactivity.
+- **Alerts the owner**: the endpoint returns 503 when Supabase is paused/unreachable; the workflow retries 3× (30 s apart) and then fails, and GitHub emails the repo owner a workflow-failure notification (default GitHub notification settings).
+- The workflow can also be triggered manually from the repo's Actions tab (`workflow_dispatch`).
+- Note: GitHub disables scheduled workflows after ~60 days without repo activity — an occasional push keeps it alive.
+- Note: the check will (correctly) fail while the app is unpublished or its latest build failed — the production URL must be serving for it to pass.
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
