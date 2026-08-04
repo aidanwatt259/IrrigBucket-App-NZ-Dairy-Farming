@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Schema ownership & startup DDL](schema-ownership.md) — no DDL at boot, only a SELECT 1 readiness probe; schema flows via drizzle push (dev) + publish diff (prod); prod replica can be frozen, blocking direct verification.
+
 - [IrrigBucket architecture](irrigbucket-architecture.md) — JSON-blob persistence (no DB migration for new SystemParams fields); derived metrics live in the report layer; mobile setup wiring has 4 touch-points.
 - [IrrigBucket store submission](store-submission.md) — CORS is safe (SameSite=Lax cookie), no runtime perms/trackers; privacy page + in-app account delete now built; after a successful server delete never re-enable sync (resurrects data as anon rows); contact email is a placeholder, expo-location unused.
 - [Testing the Expo mobile artifact](testing-multi-artifact.md) — path `/` routes to the WEB app; e2e/screenshots must navigate to the absolute `$REPLIT_EXPO_DEV_DOMAIN` URL to hit the mobile app.

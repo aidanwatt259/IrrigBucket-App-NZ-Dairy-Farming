@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startMigrationsInBackground } from "./lib/migrate";
+import { startDbReadinessCheckInBackground } from "./lib/migrate";
 
 const rawPort = process.env["PORT"];
 
@@ -17,7 +17,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 // Open the port immediately so publishes never fail waiting on a slow /
-// paused database; table setup runs in the background with retries.
+// paused database; the readiness probe runs in the background with retries.
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -27,4 +27,4 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
 });
 
-startMigrationsInBackground();
+startDbReadinessCheckInBackground();
