@@ -25,3 +25,5 @@ description: How to reach the IrrigBucket Supabase DB for DDL/verification from 
 - Project was auto-paused (free tier). User restored it via dashboard. DNS and REST resumed immediately after.
 - Post-restore cleanup: deleted 1 junk E2E row (id `legacy-zx7k9q`, farm "Farm zx7k9q"). No "Fernvale Farm" / "John Smith" seeds existed in this project. 9 rows remain (Riverdale real data, blank drafts, 1 smoke-check row).
 - Free-tier projects auto-pause after ~7 days of inactivity — keep this in mind if sync fails again.
+
+- Production publish failure mode (2026-08-04): frozen production Replit Postgres makes startup migrations hang → port never opens → health probe fails → promote fails; live site keeps serving old build. Fix: user unfreezes prod DB in Database pane, then republish. Consider not blocking listen() on migrations.
