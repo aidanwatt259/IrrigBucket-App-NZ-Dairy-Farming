@@ -20,3 +20,6 @@ description: How to reach the IrrigBucket Supabase DB for DDL/verification from 
 - DDL (ALTER TABLE, triggers, etc.) CANNOT be done via PostgREST/service-role. Options: Supabase SQL Editor (dashboard), or a working Session-pooler pg connection.
 - **Verify schema/data WITHOUT the Postgres password** via the service-role REST key: `GET {SUPABASE_URL}/rest/v1/reports?select=<col>&limit=1` with `apikey` + `Authorization: Bearer`. A missing column returns 400 code `42703` ("column ... does not exist"); total row count via `Prefer: count=exact` + `Range: 0-0` → read `Content-Range: a-b/total`. Works over IPv4.
 - Reusable runners live in `scripts/`: `apply-supabase-migration.mjs` + `supabase-conn.mjs` (pooler pg path, for when a valid pooler URL is in env), and `verify-reports-rest.mjs` (service-role REST path, always works).
+
+## 2026-08-04
+- REST host szlukdnwkmnwlkfritpl.supabase.co no longer resolves (general internet fine) — project likely paused/deleted. All Supabase-backed features silently blocked until user restores it; junk-test-row cleanup deferred (follow-up task proposed).
