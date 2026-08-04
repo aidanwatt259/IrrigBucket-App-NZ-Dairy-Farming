@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { supabase } from "../lib/supabase";
+import { isDbReady } from "../lib/migrate";
 
 const router: IRouter = Router();
 
@@ -25,9 +26,11 @@ router.get("/health", async (_req, res) => {
     const { error } = await Promise.race([ping, timeout]);
     if (error) throw new Error(error.message);
 
-    res.json({
-      status: "ok",
+    const ready = isDbReady();
+    res.status(ready ? 200 : 503).json({
+      status: ready ? "ok" : "degraded",
       database: "ok",
+      schemaReady: ready,
       latencyMs: Date.now() - startedAt,
     });
   } catch (err) {

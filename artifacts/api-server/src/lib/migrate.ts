@@ -2,6 +2,60 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 
+let dbReady = false;
+
+/** True once the startup table setup has completed successfully. */
+export function isDbReady(): boolean {
+  return dbReady;
+}
+
+const ATTEMPT_TIMEOUT_MS = 30_000;
+const MAX_BACKOFF_MS = 60_000;
+
+/**
+ * Runs table setup in the background with retries so a paused / slow-to-wake
+ * database can never block the server from opening its port (which would
+ * fail a publish). Retries forever with capped exponential backoff; each
+ * attempt has a hard timeout so a hung connection cannot wedge the loop.
+ */
+export function startMigrationsInBackground(): void {
+  void (async () => {
+    let attempt = 0;
+    for (;;) {
+      attempt += 1;
+      try {
+        await Promise.race([
+          runMigrations(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Migration attempt timed out after ${ATTEMPT_TIMEOUT_MS}ms`,
+                  ),
+                ),
+              ATTEMPT_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+        dbReady = true;
+        logger.info({ attempt }, "Database ready");
+        return;
+      } catch (err) {
+        const backoffMs = Math.min(
+          1000 * 2 ** Math.min(attempt - 1, 10),
+          MAX_BACKOFF_MS,
+        );
+        logger.warn(
+          { err, attempt, backoffMs },
+          "Database setup failed (database may be waking up); retrying",
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  })();
+}
+
 export async function runMigrations(): Promise<void> {
   logger.info("Running database migrations...");
 
