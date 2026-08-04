@@ -6,6 +6,8 @@
 //   2. Exercises POST /api/reports (insert, LWW server-wins, LWW accept)
 //      and GET /api/reports/:id using rows tagged per the test-data
 //      convention in replit.md ("E2E-" farm_name + reserved test user UUID).
+//      Also exercises POST /api/feedback and POST /api/help-requests with
+//      "[E2E]"-prefixed text so cleanup-test-data.mjs removes those rows too.
 //   3. ALWAYS runs scripts/cleanup-test-data.mjs afterwards — even when a
 //      check fails or the server never comes up — so no test rows linger.
 //
@@ -23,6 +25,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PORT = 3811; // private smoke-test port; not used by any workflow
 const BASE = `http://127.0.0.1:${PORT}/api`;
 const E2E_FARM_PREFIX = "E2E-"; // must match cleanup-test-data.mjs
+const E2E_TEXT_PREFIX = "[E2E]"; // must match cleanup-test-data.mjs
 
 let failures = 0;
 function check(name, cond, detail = "") {
@@ -46,6 +49,15 @@ async function waitForServer(timeoutMs = 60_000) {
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`API server did not become healthy within ${timeoutMs}ms`);
+}
+
+async function postJson(pathname, body) {
+  const r = await fetch(`${BASE}${pathname}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: r.status, json: await r.json().catch(() => null) };
 }
 
 async function postReport(body) {
@@ -115,6 +127,43 @@ async function runChecks() {
     get.status === 200 && got?.report?.farmName === newerName,
     `got ${get.status}`,
   );
+
+  // --- feedback endpoint --------------------------------------------------
+  console.log("Running feedback API smoke checks…");
+
+  // 5. Submit tagged feedback ([E2E] prefix matches cleanup convention).
+  const fb = await postJson("/feedback", {
+    message: `${E2E_TEXT_PREFIX} smoke test feedback ${Date.now()}`,
+    contactInfo: `${E2E_TEXT_PREFIX} smoke@example.invalid`,
+  });
+  check("feedback insert returns 201", fb.status === 201, `got ${fb.status}`);
+  check(
+    "feedback returns id + createdAt",
+    Boolean(fb.json?.feedback?.id && fb.json?.feedback?.createdAt),
+  );
+
+  // 6. Empty message is rejected.
+  const fbBad = await postJson("/feedback", { message: "   " });
+  check("feedback rejects empty message (400)", fbBad.status === 400, `got ${fbBad.status}`);
+
+  // --- help-requests endpoint ----------------------------------------------
+  console.log("Running help-requests API smoke checks…");
+
+  // 7. Submit tagged help request.
+  const hrDesc = `${E2E_TEXT_PREFIX} smoke test help request ${Date.now()}`;
+  const hr = await postJson("/help-requests", {
+    description: hrDesc,
+    contactInfo: `${E2E_TEXT_PREFIX} smoke@example.invalid`,
+  });
+  check("help-request insert returns 201", hr.status === 201, `got ${hr.status}`);
+  check(
+    "help-request echoes description, unresolved",
+    hr.json?.helpRequest?.description === hrDesc && hr.json?.helpRequest?.resolved === false,
+  );
+
+  // 8. Invalid body is rejected.
+  const hrBad = await postJson("/help-requests", {});
+  check("help-request rejects invalid body (400)", hrBad.status === 400, `got ${hrBad.status}`);
 }
 
 function runCleanup() {
