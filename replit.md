@@ -53,7 +53,9 @@ E2E/smoke checks must never leave rows in the production Supabase database. Two 
    - help_requests: `description` starts with `[E2E]`
    - feedback: `message` starts with `[E2E]`
 
-   Then run `pnpm run cleanup:test-data` (or `node scripts/cleanup-test-data.mjs`, add `--dry-run` to preview) as the teardown step — it deletes all tagged rows via the service-role PostgREST API. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
+   The committed smoke suite `pnpm run smoke:reports` (`scripts/smoke-test-reports.mjs`, also registered as the `smoke-reports` validation step) boots the API server on a private port, exercises POST/GET /api/reports with tagged rows, and ALWAYS runs the cleanup on teardown — pass or fail.
+
+   For manual/ad-hoc test data, run `pnpm run cleanup:test-data` (or `node scripts/cleanup-test-data.mjs`, add `--dry-run` to preview) as the teardown step — it deletes all tagged rows via the service-role PostgREST API. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Root Scripts
 

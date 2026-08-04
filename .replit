@@ -50,6 +50,10 @@ args = "test-api"
 task = "workflow.run"
 args = "typecheck-web"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "smoke-reports"
+
 [[workflows.workflow]]
 name = "typecheck-api"
 author = "agent"
@@ -123,6 +127,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/irrigbucket run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "smoke-reports"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run smoke:reports"
 
 [workflows.workflow.metadata]
 isValidation = true
