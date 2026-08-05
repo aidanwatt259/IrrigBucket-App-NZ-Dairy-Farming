@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as Crypto from 'expo-crypto';
 
+import { isTransientApiError } from '@workspace/api-client-react';
 import { SyncEngine } from '@workspace/sync';
 import type { SyncReport, SyncStatus } from '@workspace/sync';
 
@@ -95,14 +96,43 @@ function applyOnline(): void {
   engine.setOnline(lastConnected && authed);
 }
 
+// A 503 from the server (e.g. DB_NOT_READY while its database is still waking
+// up) is transient, so retry the pull with capped backoff instead of silently
+// giving up until the next online edge.
+const PULL_MAX_ATTEMPTS = 6;
+const PULL_BASE_BACKOFF_MS = 2000;
+const PULL_MAX_BACKOFF_MS = 30_000;
+
+let pullInFlight = false;
+
 /** Pull authoritative server state when both connected and authed. */
 async function pullIfPossible(): Promise<void> {
   if (!engine || !authed || !lastConnected) return;
+  if (pullInFlight) return;
+  pullInFlight = true;
   try {
-    await engine.reconcilePull();
-    notifyReportsChanged();
-  } catch {
-    // Pull failures surface via status events; the next online edge retries.
+    for (let attempt = 1; attempt <= PULL_MAX_ATTEMPTS; attempt++) {
+      // Re-check the gates before every attempt — auth or connectivity may
+      // have changed while we were backing off.
+      if (!engine || !authed || !lastConnected) return;
+      try {
+        await engine.reconcilePull();
+        notifyReportsChanged();
+        return;
+      } catch (err) {
+        const retryable =
+          isTransientApiError(err) && attempt < PULL_MAX_ATTEMPTS;
+        // Non-transient or exhausted: the next online edge retries.
+        if (!retryable) return;
+        const backoffMs = Math.min(
+          PULL_BASE_BACKOFF_MS * 2 ** (attempt - 1),
+          PULL_MAX_BACKOFF_MS,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  } finally {
+    pullInFlight = false;
   }
 }
 
@@ -205,7 +235,9 @@ export async function enableSync(): Promise<void> {
   authed = true;
   notifyReportsChanged();
   applyOnline();
-  await pullIfPossible();
+  // Fire-and-forget: the pull now retries transient failures with backoff,
+  // so awaiting it could block sign-in for the whole backoff window.
+  void pullIfPossible();
 }
 
 /**

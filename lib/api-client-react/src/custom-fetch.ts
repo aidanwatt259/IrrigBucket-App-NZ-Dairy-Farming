@@ -196,6 +196,21 @@ export class ApiError<T = unknown> extends Error {
   }
 }
 
+/**
+ * True when an error represents a transient server-side condition worth
+ * retrying: a 503 (e.g. the API's `DB_NOT_READY` gate while the database is
+ * still waking up, or `SYNC_UNAVAILABLE` while it is paused), any other 5xx,
+ * 429 rate limiting, or a network-level fetch failure (TypeError). Client
+ * mistakes (4xx other than 429) are NOT transient.
+ */
+export function isTransientApiError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.status === 429 || err.status >= 500;
+  }
+  // fetch() rejects with a TypeError on network failures in browsers and RN.
+  return err instanceof TypeError;
+}
+
 export class ResponseParseError extends Error {
   readonly name = "ResponseParseError";
   readonly status: number;

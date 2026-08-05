@@ -9,6 +9,11 @@ export function isDbReady(): boolean {
   return dbReady;
 }
 
+/** Test-only: force the readiness flag. Never call from production code. */
+export function __setDbReadyForTests(value: boolean): void {
+  dbReady = value;
+}
+
 const ATTEMPT_TIMEOUT_MS = 30_000;
 const MAX_BACKOFF_MS = 60_000;
 

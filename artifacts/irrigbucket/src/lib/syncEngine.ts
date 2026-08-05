@@ -1,4 +1,5 @@
 import { SyncEngine, type SyncStatus } from '@workspace/sync';
+import { isTransientApiError } from '@workspace/api-client-react';
 import { db, savedReportToSyncReport } from './syncDb';
 import { dexieAdapter } from './dexieAdapter';
 import { transport } from './transport';
@@ -75,9 +76,48 @@ async function runMigration(): Promise<void> {
 // Connectivity wiring + startup.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Pull retry — a 503 (e.g. DB_NOT_READY while the server's database is still
+// waking up) is transient, so retry the pull with capped backoff instead of
+// silently giving up until the next online edge.
+// ---------------------------------------------------------------------------
+
+const PULL_MAX_ATTEMPTS = 6;
+const PULL_BASE_BACKOFF_MS = 2000;
+const PULL_MAX_BACKOFF_MS = 30_000;
+
+let pullInFlight = false;
+
+async function pullWithRetry(): Promise<void> {
+  if (pullInFlight) return;
+  pullInFlight = true;
+  try {
+    for (let attempt = 1; attempt <= PULL_MAX_ATTEMPTS; attempt++) {
+      try {
+        await syncEngine.reconcilePull();
+        // A successful pull may unblock queued pushes too.
+        void syncEngine.drain().catch(() => {});
+        return;
+      } catch (err) {
+        const retryable =
+          isTransientApiError(err) && attempt < PULL_MAX_ATTEMPTS;
+        if (!retryable) return; // Non-transient or exhausted: next online edge retries.
+        const backoffMs = Math.min(
+          PULL_BASE_BACKOFF_MS * 2 ** (attempt - 1),
+          PULL_MAX_BACKOFF_MS,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      }
+    }
+  } finally {
+    pullInFlight = false;
+  }
+}
+
 function handleOnline(): void {
   syncEngine.setOnline(true);
-  void syncEngine.reconcilePull().catch(() => {});
+  void pullWithRetry();
 }
 
 function handleOffline(): void {
@@ -105,7 +145,7 @@ export function initSyncEngine(): void {
     );
     await runMigration();
     if (typeof navigator === 'undefined' || navigator.onLine) {
-      await syncEngine.reconcilePull().catch(() => {});
+      await pullWithRetry();
     }
     await syncEngine.drain().catch(() => {});
   })();
