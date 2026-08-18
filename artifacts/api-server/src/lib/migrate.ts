@@ -30,6 +30,19 @@ export async function runMigrations(): Promise<void> {
   `);
 
   await db.execute(sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR
+  `);
+  await db.execute(sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR
+  `);
+  await db.execute(sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR
+  `);
+  await db.execute(sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE
+  `);
+
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS reports (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id VARCHAR REFERENCES users(id),

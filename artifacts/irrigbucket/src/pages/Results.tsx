@@ -7,8 +7,9 @@ import { calculateTestResults } from '@/lib/calculations';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { saveReport } from '@/lib/savedReports';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useBilling } from '@/hooks/use-billing';
 import { ReportContent } from '@/components/report/ReportContent';
+import { BillingPaywall } from '@/components/billing/BillingPaywall';
 
 export default function Results() {
   const [, setLocation] = useLocation();
@@ -17,7 +18,7 @@ export default function Results() {
     sections, irrigatorType, operationData, reset,
   } = useAppStore();
   const savedRef = useRef(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasAccess, isLoading: billingLoading } = useBilling();
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -29,6 +30,7 @@ export default function Results() {
   );
 
   useEffect(() => {
+    if (billingLoading || !hasAccess) return;
     if (plan && results && volumes.some(v => v > 0) && !savedRef.current) {
       savedRef.current = true;
       const saved = saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
@@ -61,7 +63,7 @@ export default function Results() {
         }).catch(() => {});
       }
     }
-  }, [plan, results, isAuthenticated]);
+  }, [plan, results, isAuthenticated, hasAccess, billingLoading]);
 
   if (!plan || !results) return null;
 
@@ -71,25 +73,31 @@ export default function Results() {
   return (
     <AppLayout step={totalSteps} totalSteps={totalSteps} title="Test Results" showBack={false}>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <ReportContent
-          irrigatorType={irrigatorType}
-          systemParams={systemParams}
-          plan={plan}
-          volumes={volumes}
-          windSpeed={windSpeed}
-          testDate={testDate}
-          sections={sections}
-          operationData={operationData}
-          results={results}
-          onPrint={() => window.print()}
-        />
+        <BillingPaywall
+          returnTo="/results"
+          title="Unlock your results"
+          description="Your bucket readings are saved on this device. Subscribe to see the full report, recommendations, and printable results."
+        >
+          <ReportContent
+            irrigatorType={irrigatorType}
+            systemParams={systemParams}
+            plan={plan}
+            volumes={volumes}
+            windSpeed={windSpeed}
+            testDate={testDate}
+            sections={sections}
+            operationData={operationData}
+            results={results}
+            onPrint={() => window.print()}
+          />
 
-        <div className="flex flex-col sm:flex-row gap-4 px-6 pb-8 no-print">
-          <Button size="lg" className="flex-1" onClick={() => { reset(); setLocation('/'); }}>
-            <RotateCcw className="w-5 h-5 mr-2" />
-            Start New Test
-          </Button>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-4 px-6 pb-8 no-print">
+            <Button size="lg" className="flex-1" onClick={() => { reset(); setLocation('/'); }}>
+              <RotateCcw className="w-5 h-5 mr-2" />
+              Start New Test
+            </Button>
+          </div>
+        </BillingPaywall>
       </motion.div>
     </AppLayout>
   );

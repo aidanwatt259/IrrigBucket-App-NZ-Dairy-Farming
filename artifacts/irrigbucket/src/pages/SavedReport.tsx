@@ -8,6 +8,7 @@ import { SideMenu } from '@/components/layout/SideMenu';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ReportContent } from '@/components/report/ReportContent';
+import { BillingPaywall } from '@/components/billing/BillingPaywall';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,25 +130,31 @@ export default function SavedReport() {
 
       <main className="flex-1">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <ReportContent
-            irrigatorType={report.irrigatorType}
-            systemParams={report.systemParams}
-            plan={report.plan ?? null}
-            volumes={report.volumes}
-            windSpeed={report.windSpeed}
-            testDate={report.testDate}
-            sections={report.sections}
-            operationData={report.operationData}
-            results={results}
-            onPrint={() => window.print()}
-          />
+          <BillingPaywall
+            returnTo={`/reports/${report.id}`}
+            title="Unlock saved reports"
+            description="Subscribe annually to open previous bucket test reports."
+          >
+            <ReportContent
+              irrigatorType={report.irrigatorType}
+              systemParams={report.systemParams}
+              plan={report.plan ?? null}
+              volumes={report.volumes}
+              windSpeed={report.windSpeed}
+              testDate={report.testDate}
+              sections={report.sections}
+              operationData={report.operationData}
+              results={results}
+              onPrint={() => window.print()}
+            />
 
-          <div className="flex gap-4 px-6 pb-8 max-w-3xl mx-auto no-print">
-            <Button variant="outline" size="lg" className="flex-1" onClick={() => setLocation('/')}>
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Home
-            </Button>
-          </div>
+            <div className="flex gap-4 px-6 pb-8 max-w-3xl mx-auto no-print">
+              <Button variant="outline" size="lg" className="flex-1" onClick={() => setLocation('/')}>
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Home
+              </Button>
+            </div>
+          </BillingPaywall>
         </motion.div>
       </main>
     </div>

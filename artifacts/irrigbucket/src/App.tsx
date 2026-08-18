@@ -14,6 +14,7 @@ import Results from "@/pages/Results";
 import SavedReport from "@/pages/SavedReport";
 import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
+import Subscribe from "@/pages/Subscribe";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/data" component={DataEntry} />
       <Route path="/results" component={Results} />
       <Route path="/reports/:id" component={SavedReport} />
+      <Route path="/subscribe" component={Subscribe} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>

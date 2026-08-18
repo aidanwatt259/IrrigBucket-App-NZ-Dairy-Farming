@@ -18,6 +18,8 @@ tags:
     description: Admin-only endpoints.
   - name: HelpRequests
     description: User help request endpoints.
+  - name: Billing
+    description: Stripe subscription checkout and billing portal.
 paths:
   /healthz:
     get:
@@ -340,6 +342,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /billing/status:
+    get:
+      tags: [Billing]
+      operationId: getBillingStatus
+      summary: Get subscription status and annual price
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Billing status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingStatus'
+  /billing/checkout:
+    post:
+      tags: [Billing]
+      operationId: createBillingCheckout
+      summary: Create a Stripe Checkout session for the annual subscription
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillingCheckoutRequest'
+      responses:
+        '200':
+          description: Checkout URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingRedirect'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Stripe is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /billing/portal:
+    post:
+      tags: [Billing]
+      operationId: createBillingPortal
+      summary: Create a Stripe Customer Portal session
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Portal URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingRedirect'
+        '400':
+          description: No billing account yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -564,3 +641,42 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HelpRequestRecord'
+    BillingStatus:
+      type: object
+      required: [configured, authenticated, hasAccess, price]
+      properties:
+        configured:
+          type: boolean
+        authenticated:
+          type: boolean
+        hasAccess:
+          type: boolean
+        status:
+          type: [string, 'null']
+        currentPeriodEnd:
+          type: [string, 'null']
+        price:
+          $ref: '#/components/schemas/BillingPrice'
+    BillingPrice:
+      type: object
+      required: [amountNzd, currency, interval, display]
+      properties:
+        amountNzd:
+          type: number
+        currency:
+          type: string
+        interval:
+          type: string
+        display:
+          type: string
+    BillingCheckoutRequest:
+      type: object
+      properties:
+        returnTo:
+          type: string
+    BillingRedirect:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string

@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { handleStripeWebhook } from "./routes/stripeWebhook";
 
 const app: Express = express();
 
@@ -29,6 +30,11 @@ app.use(
 );
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook,
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);

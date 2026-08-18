@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import reportsRouter from "./reports";
 import helpRequestsRouter from "./helpRequests";
 import adminRouter from "./admin";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(authRouter);
 router.use(reportsRouter);
 router.use(helpRequestsRouter);
 router.use(adminRouter);
+router.use(billingRouter);
 
 export default router;

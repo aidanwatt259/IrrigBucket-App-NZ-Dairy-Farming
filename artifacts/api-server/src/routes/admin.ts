@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, reportsTable, helpRequestsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { isAdmin } from "./reports";
+import { isAdmin } from "../lib/admin";
 
 const router: IRouter = Router();
 
