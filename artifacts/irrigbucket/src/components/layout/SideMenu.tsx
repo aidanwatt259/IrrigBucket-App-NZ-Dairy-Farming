@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { FileText, Trash2, ChevronRight, ClipboardList, LogIn, LogOut, User, Cloud, HelpCircle, Send, X, ShieldCheck, MessageSquare, AlertTriangle } from 'lucide-react';
+import { FileText, Trash2, ChevronRight, ClipboardList, LogIn, LogOut, User, Cloud, HelpCircle, Send, X, ShieldCheck, MessageSquare, AlertTriangle, CreditCard } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -10,6 +10,7 @@ import {
   saveReport as saveLocalReport,
 } from '@/lib/savedReports';
 import { useAuth } from '@workspace/replit-auth-web';
+import { useBilling } from '@/hooks/use-billing';
 
 interface ServerReport {
   id: string;
@@ -48,6 +49,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
+  const { hasAccess, isLoading: billingLoading } = useBilling();
 
   useEffect(() => {
     if (open) {
@@ -499,10 +501,19 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
               </Button>
             </div>
           ) : (
-            <Button variant="outline" className="w-full" onClick={login}>
+            <Button variant="outline" className="w-full" onClick={() => login()}>
               <LogIn className="w-4 h-4 mr-2" />
               Log in
             </Button>
+          )}
+          {isAuthenticated && !billingLoading && (
+            <button
+              onClick={() => { onClose(); setLocation(hasAccess ? '/subscribe' : '/subscribe?start=1'); }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              {hasAccess ? 'Manage subscription' : 'Subscribe'}
+            </button>
           )}
           {user?.isAdmin && (
             <button

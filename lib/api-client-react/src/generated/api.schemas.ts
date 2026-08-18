@@ -175,6 +175,32 @@ export interface HelpRequestListEnvelope {
   helpRequests: HelpRequestRecord[];
 }
 
+export interface BillingPrice {
+  amountNzd: number;
+  currency: string;
+  interval: string;
+  display: string;
+}
+
+export interface BillingStatus {
+  configured: boolean;
+  authenticated: boolean;
+  hasAccess: boolean;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  currentPeriodEnd?: string | null;
+  price: BillingPrice;
+}
+
+export interface BillingCheckoutRequest {
+  returnTo?: string;
+}
+
+export interface BillingRedirect {
+  url: string;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

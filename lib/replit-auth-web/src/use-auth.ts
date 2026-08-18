@@ -12,7 +12,7 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: () => void;
+  login: (returnTo?: string) => void;
   logout: () => void;
 }
 
@@ -47,9 +47,14 @@ export function useAuth(): AuthState {
   }, []);
 
   // Navigate to the app's own login page instead of Replit OIDC.
-  const login = useCallback(() => {
-    const base = (import.meta.env.BASE_URL ?? "/").replace(/\/+$/, "");
-    window.location.href = `${base}/login`;
+  const login = useCallback((returnTo?: string) => {
+    const env = (import.meta as { env?: { BASE_URL?: string } }).env;
+    const base = (env?.BASE_URL ?? "/").replace(/\/+$/, "");
+    const loginPath = `${base}/login`;
+    const dest = returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")
+      ? `?returnTo=${encodeURIComponent(returnTo)}`
+      : "";
+    window.location.href = `${loginPath}${dest}`;
   }, []);
 
   // Clear the server session; best-effort Supabase signOut first.

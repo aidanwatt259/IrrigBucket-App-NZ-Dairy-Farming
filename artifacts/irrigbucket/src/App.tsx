@@ -21,6 +21,7 @@ import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import Subscribe from "@/pages/Subscribe";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ function Router() {
         <Route path="/data" component={DataEntry} />
         <Route path="/results" component={Results} />
         <Route path="/reports/:id" component={SavedReport} />
+        <Route path="/subscribe" component={Subscribe} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>

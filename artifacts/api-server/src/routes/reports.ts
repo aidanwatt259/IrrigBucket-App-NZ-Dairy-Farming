@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { SaveReportBody } from "@workspace/api-zod";
 import {
   supabase,
@@ -6,14 +6,28 @@ import {
   respondIfUnavailable,
 } from "../lib/supabase.js";
 import { decideReportUpsert } from "../lib/reportUpsert.js";
+import { isAdmin } from "../lib/admin";
+import { userHasPaidAccess } from "./billing";
 
 const router: IRouter = Router();
+
+async function requirePaidAccess(req: Request, res: Response): Promise<boolean> {
+  if (await userHasPaidAccess(req)) return true;
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return false;
+  }
+  res.status(402).json({ error: "Subscription required" });
+  return false;
+}
 
 // Offline-first save: upsert keyed on the client-supplied report id, with
 // Last-Write-Wins conflict resolution and per-user ownership enforcement.
 // Always responds with the authoritative record (the winner), so the client
 // can adopt it directly during sync reconciliation.
 router.post("/reports", async (req, res) => {
+  if (!(await requirePaidAccess(req, res))) return;
+
   const parsed = SaveReportBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -175,6 +189,7 @@ router.get("/reports", async (req, res) => {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
+  if (!(await requirePaidAccess(req, res))) return;
 
   const { data: reports, error } = await supabase
     .from("reports")
@@ -211,6 +226,11 @@ router.get("/reports/:id", async (req, res) => {
 
   if (report.user_id && req.user?.id !== report.user_id && !isAdmin(req)) {
     res.status(404).json({ error: "Report not found" });
+    return;
+  }
+
+  if (!(await userHasPaidAccess(req))) {
+    res.status(402).json({ error: "Subscription required" });
     return;
   }
 
@@ -329,11 +349,7 @@ function toReportResponse(r: {
   };
 }
 
-export function isAdmin(req: Express.Request): boolean {
-  if (!req.user) return false;
-  const adminId = process.env.ADMIN_USER_ID;
-  if (!adminId && process.env.NODE_ENV !== "production") return true;
-  return req.user.id === adminId;
-}
+// Backward-compatible re-export for routes that still import this helper here.
+export { isAdmin };
 
 export default router;

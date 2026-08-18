@@ -6,7 +6,7 @@ import {
   respondSupabaseError,
   respondIfUnavailable,
 } from "../lib/supabase.js";
-import { isAdmin } from "./reports.js";
+import { isAdmin } from "../lib/admin";
 
 const router: IRouter = Router();
 

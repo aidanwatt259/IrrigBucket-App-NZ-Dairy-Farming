@@ -291,3 +291,59 @@ export const AdminResolveHelpRequestResponse = zod.object({
     createdAt: zod.string(),
   }),
 });
+
+/**
+ * @summary Get subscription status and annual price
+ */
+export const GetBillingStatusHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetBillingStatusResponse = zod.object({
+  configured: zod.boolean(),
+  authenticated: zod.boolean(),
+  hasAccess: zod.boolean(),
+  status: zod.string().nullish(),
+  currentPeriodEnd: zod.string().nullish(),
+  price: zod.object({
+    amountNzd: zod.number(),
+    currency: zod.string(),
+    interval: zod.string(),
+    display: zod.string(),
+  }),
+});
+
+/**
+ * @summary Create a Stripe Checkout session for the annual subscription
+ */
+export const CreateBillingCheckoutHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const CreateBillingCheckoutBody = zod.object({
+  returnTo: zod.string().optional(),
+});
+
+export const CreateBillingCheckoutResponse = zod.object({
+  url: zod.string(),
+});
+
+/**
+ * @summary Create a Stripe Customer Portal session
+ */
+export const CreateBillingPortalHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const CreateBillingPortalResponse = zod.object({
+  url: zod.string(),
+});

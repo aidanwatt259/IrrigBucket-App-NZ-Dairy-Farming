@@ -6,6 +6,7 @@ import reportsRouter from "./reports";
 import helpRequestsRouter from "./helpRequests";
 import feedbackRouter from "./feedback";
 import adminRouter from "./admin";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -31,5 +32,6 @@ router.use(reportsRouter);
 router.use(helpRequestsRouter);
 router.use(feedbackRouter);
 router.use(adminRouter);
+router.use(billingRouter);
 
 export default router;
