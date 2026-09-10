@@ -11,3 +11,18 @@ id = "nrQnStjwJGeBWRIsJpzQW"
 uri = "file://artifacts/irrigbucket-mobile/SMOKE_CHECKLIST.md"
 type = "text"
 title = "IrrigBucket Mobile — Offline-First Smoke Checklist"
+logical_id = "fd374e5a-0ef8-4aba-aa01-7efb94af272b"
+
+[[outputs]]
+id = "Yyx09GMqM2eA2bxTeP9-Z"
+uri = "file://irrigbucket-replit-main.bundle"
+type = "unspecified"
+title = "Replit Git history bundle"
+description = "Verified complete Git bundle containing the current Replit main branch. Download and provide its local path to Cursor for the history repair."
+logical_id = "cba7716e-841b-4ddb-b747-471dec9684b5"
+content_hash = "sha256:6ab18617499b6deb889da3bae43e102e45783172bf74c4d61908c16f46190355"
+size = 4217750
+mtime_ms = 1789070054937
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e5a3e2c9-b7e5-4051-8c53-bc0c82a3411d/cba7716e-841b-4ddb-b747-471dec9684b5/9196b654-0a02-4fa2-a8ef-aa1dd576aed5"
+storage_version_token = "1789071226368077"
+content_type = "application/octet-stream"
