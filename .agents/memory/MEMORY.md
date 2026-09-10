@@ -11,3 +11,4 @@
 - [IrrigBucket offline-first sync](irrigbucket-lww-sync.md) — server LWW upsert + Supabase Database-type `never` gotcha + PostgREST `.or()` injection rule; client lib/sync engine invariants (enqueueId guard, pre-read inFlight claim, StorageAdapter atomicity/CAS contract).
 - [Test-data hygiene](test-data-hygiene.md) — tag all smoke/E2E rows (farm_name `E2E-`, text `[E2E]`, reserved user UUID …0e2e) and run `pnpm run cleanup:test-data` on teardown; NODE_ENV=test can point at SUPABASE_TEST_URL.
 - [Supabase connectivity](supabase-connectivity.md) — direct host IPv6-only → use Session pooler (aws-1-us-east-2); SUPABASE_DB_URL secret can be frozen mid-session; verify schema via service-role REST (42703 = missing col).
+- [Git history and authorization](git-history-authorization.md) — preserve shared ancestry and workflow files; OAuth API access and Git-provider push authentication are separate.
