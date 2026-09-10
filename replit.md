@@ -1,5 +1,18 @@
 # Workspace
 
+## Cursor ↔ GitHub sync (required)
+
+GitHub `main` is the source of truth. Cursor is used to write code. Replit is used to test. Do not let this Replit workspace invent a different commit history.
+
+When Aidan asks you to pull from GitHub, or at the start of a testing session:
+
+1. `git fetch origin`, then fast-forward `main` to `origin/main`. Do not rebase, squash, or force-push.
+2. Test the app.
+3. If you made any changes, commit them on `main` and `git push origin main`.
+4. Tell Aidan to pull those commits in Cursor before he continues there.
+
+If local Replit has diverged from GitHub, stop and report the divergence. Never force-push or rewrite shared history.
+
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
