@@ -8,12 +8,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "irrigbucket-mobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#fafaf5"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "nz.irrigbucket.app"
@@ -39,7 +33,18 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#fafaf5"
+        }
+      ],
+      "expo-sqlite",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -29,18 +29,24 @@ description: Non-obvious traps wiring @workspace/sync + durable adapters into th
   Phase 5 enables sync, mobile ids MUST switch to UUIDs or every upsert will be rejected by the
   server's UUID column. Legacy migrated rows with non-UUID ids will also fail to upsert.
 
-# Expo Go won't open on a phone: owner + non-interactive dev server
-- `app.json` has `owner` (+ `extra.eas.projectId`). With an `owner` set, `expo start` wants to
-  authenticate as that account to code-sign the dev manifest, so at startup it shows an
-  interactive prompt "Log in / Proceed anonymously" (link: expo.fyi/unverified-app-expo-go).
-- The Replit mobile `dev` workflow runs non-interactively (`< /dev/null`), so the prompt can
-  never be answered → Expo Go treats the app as unverified and won't open it on a device.
-- **Key tell:** Metro still serves manifest + bundles to raw `curl`, and the Expo **web**
-  preview still renders fine — ONLY Expo Go (the phone) is blocked. So a green web preview does
-  NOT prove Expo Go works.
-- **Fix:** add `EXPO_OFFLINE=1` to the mobile `dev` script. Offline mode skips the account check
-  + prompt and serves an UNSIGNED dev manifest (logs "unable to sign manifest"), which Expo Go
-  opens as a normal anonymous dev project. Keeps `owner`/EAS intact for builds.
-- For a fully *verified* experience (no unsigned notice), instead set an `EXPO_TOKEN` secret so
-  the dev server logs in as the owner online and signs the manifest. Do NOT delete `owner` — it
-  ties EAS build/update to the account.
+# Expo Go verification and managed sign-in
+Do not treat a working Expo web preview or native export as proof that a physical iOS Expo Go client can open the app. The former SDK 54 anonymous/offline workaround is not a substitute for SDK 57's managed sign-in.
+
+**Why:** Expo Go 57 on physical iOS requires a signed-in dev server. Web and Android do not establish coverage of that requirement. Preserve the existing app owner and native build identity rather than deleting them to work around preview authentication.
+
+**How to apply:** Use Replit's managed session and Preview on your phone flow, not manual Expo/EAS credentials. Record physical-device acceptance separately from bundles and browser screenshots.
+
+Managed-login success alone does not prove that Expo is serving a signed manifest. Do not force offline mode for managed device previews.
+
+**Why:** The panel and CLI can both report a successful login while the server logs that offline mode prevents obtaining a development certificate. Removing offline mode eliminates that obstruction but does not itself prove signing works; an existing EAS project's permissions can also affect certificate issuance.
+
+**How to apply:** Verify signing separately from login and preserve existing project ownership. If managed authentication remains blocked, use the platform recovery flow rather than changing ownership or requesting manual credentials.
+
+Physical-device acceptance was confirmed after removing forced offline mode. A manual manifest request still appeared unsigned during that investigation, so that probe alone was not a reliable predictor of the managed Expo Go launch outcome.
+
+# SDK upgrade dependency checks in the workspace
+Use Expo CLI's recommended versions, then inspect actual installed React versions as well as the mobile manifest.
+
+**Why:** pnpm can replace explicit React additions with catalog references, retaining an incompatible shared pin. The project also delays new package releases by one day, whereas Expo's online recommendations can point at patches published that same day. This can cause an online dependency fix to fail even when the prior SDK patch is compatible.
+
+**How to apply:** Align shared catalog versions deliberately and check the web app when React changes. Do not leave the release-age safeguard disabled or mask mismatches using Expo exclusions. Preserve Metro's workspace resolution behavior, but reassess old Babel internal imports against the target SDK instead of carrying them forward blindly.
