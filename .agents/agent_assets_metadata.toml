@@ -26,3 +26,17 @@ mtime_ms = 1789070054937
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e5a3e2c9-b7e5-4051-8c53-bc0c82a3411d/cba7716e-841b-4ddb-b747-471dec9684b5/9196b654-0a02-4fa2-a8ef-aa1dd576aed5"
 storage_version_token = "1789071226368077"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "NZCk0wd1Bjdey6hUCa1Nn"
+uri = "file://attached_assets/irrigbucket-replit-latest-0c04801.bundle"
+type = "unspecified"
+title = "Latest Replit Git bundle"
+description = "Verified complete main history through 0c0480100beee77bb6c96e68305e9fb5ffdfa3c1, including the working Expo fix. Give this file to Cursor instead of the earlier bundle."
+logical_id = "cfac24b3-fa82-4f4a-9c5d-ea24b8e07595"
+content_hash = "sha256:c2a57aaa075b3cab48f1622981d87a7b1aa28a1d425edfde83ea90926762dbbf"
+size = 11728949
+mtime_ms = 1789175118557
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e5a3e2c9-b7e5-4051-8c53-bc0c82a3411d/cfac24b3-fa82-4f4a-9c5d-ea24b8e07595/41cf0a12-22c9-4cb7-8aa6-1bb8f2d5cc20"
+storage_version_token = "1789175122895081"
+content_type = "application/octet-stream"
