@@ -36,6 +36,12 @@ Do not treat a working Expo web preview or native export as proof that a physica
 
 **How to apply:** Use Replit's managed session and Preview on your phone flow, not manual Expo/EAS credentials. Record physical-device acceptance separately from bundles and browser screenshots.
 
+Managed-login success alone does not prove that Expo is serving a signed manifest. Do not force offline mode for managed device previews.
+
+**Why:** The panel and CLI can both report a successful login while the server logs that offline mode prevents obtaining a development certificate. Removing offline mode eliminates that obstruction but does not itself prove signing works; an existing EAS project's permissions can also affect certificate issuance.
+
+**How to apply:** Verify signing separately from login and preserve existing project ownership. If managed authentication remains blocked, use the platform recovery flow rather than changing ownership or requesting manual credentials.
+
 # SDK upgrade dependency checks in the workspace
 Use Expo CLI's recommended versions, then inspect actual installed React versions as well as the mobile manifest.
 
