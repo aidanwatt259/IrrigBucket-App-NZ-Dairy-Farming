@@ -1,19 +1,5 @@
 # Workspace
 
-## Cursor ↔ GitHub sync (required)
-
-GitHub `main` is the source of truth. Cursor is used to write code. Replit is used to test. Do not let this Replit workspace invent a different commit history.
-
-When Aidan asks you to pull from GitHub, or at the start of a testing session:
-
-1. `git fetch origin`, then fast-forward `main` to `origin/main`. Do not rebase, squash, or force-push.
-2. Test the app.
-3. If you made any changes, commit them on `main` and `git push origin main`.
-4. Tell Aidan to pull those commits in Cursor before he continues there.
-
-If local Replit has diverged from GitHub, stop and report the divergence. Never force-push or rewrite shared history.
-
-
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
@@ -25,7 +11,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
-- **Database**: Supabase (reports, help_requests, feedback) + Replit PostgreSQL/Drizzle (sessions, users for auth)
+- **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
@@ -56,20 +42,6 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
 - **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
 - **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
-
-## Test data (keep out of production!)
-
-E2E/smoke checks must never leave rows in the production Supabase database. Two mechanisms:
-
-1. **Isolated test DB (preferred)**: run the API server with `NODE_ENV=test` and set `SUPABASE_TEST_URL` + `SUPABASE_TEST_SERVICE_ROLE_KEY` to a dedicated test Supabase project — `artifacts/api-server/src/lib/supabase.ts` picks them up automatically.
-2. **Tag + auto-teardown (when no test DB is configured)**: any test-created row MUST be tagged:
-   - reports: `farm_name` starts with `E2E-`, or `user_id` = reserved test UUID `00000000-0000-4000-8000-000000000e2e`
-   - help_requests: `description` starts with `[E2E]`
-   - feedback: `message` starts with `[E2E]`
-
-   The committed smoke suite `pnpm run smoke:reports` (`scripts/smoke-test-reports.mjs`, also registered as the `smoke-reports` validation step) boots the API server on a private port, exercises POST/GET /api/reports with tagged rows, and ALWAYS runs the cleanup on teardown — pass or fail.
-
-   For manual/ad-hoc test data, run `pnpm run cleanup:test-data` (or `node scripts/cleanup-test-data.mjs`, add `--dry-run` to preview) as the teardown step — it deletes all tagged rows via the service-role PostgREST API. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Root Scripts
 
@@ -172,16 +144,6 @@ Mobile-first React+Vite web app for NZ dairy farmers to conduct irrigation bucke
 **Other irrigator types (5 steps, no /operation):** Lateral Move, K-Line/Pods, Travelling Gun, Solid Set/Fixed, Boom Spray
 
 **DU thresholds:** ≥80% Pass, 65–79% Attention, <65% Fail
-
-## Uptime monitoring (cloud sync alerts)
-
-A scheduled GitHub Actions workflow (`.github/workflows/health-check.yml`) pings the deployed API's deep health check `https://irrigbucket.co.nz/api/health` every 10 minutes:
-
-- **Keeps Supabase awake**: the ping queries the database, so the free-tier Supabase project never auto-pauses from inactivity.
-- **Alerts the owner**: the endpoint returns 503 when Supabase is paused/unreachable; the workflow retries 3× (30 s apart) and then fails, and GitHub emails the repo owner a workflow-failure notification (default GitHub notification settings).
-- The workflow can also be triggered manually from the repo's Actions tab (`workflow_dispatch`).
-- Note: GitHub disables scheduled workflows after ~60 days without repo activity — an occasional push keeps it alive.
-- Note: the check will (correctly) fail while the app is unpublished or its latest build failed — the production URL must be serving for it to pass.
 
 ### `scripts` (`@workspace/scripts`)
 

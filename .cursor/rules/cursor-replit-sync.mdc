@@ -1,0 +1,28 @@
+---
+description: Keep Cursor and Replit on the same GitHub main history
+alwaysApply: true
+---
+
+# Cursor ↔ Replit GitHub workflow
+
+GitHub `main` is the only shared commit history. Cursor is for writing code. Replit is for testing. Never let the two environments create different commits for the same work.
+
+Follow this loop in order. Do not skip steps.
+
+1. **Pull `main` before starting.** `git fetch origin` and fast-forward to `origin/main`. Do not edit if local `main` is behind, unexpectedly ahead, or diverged.
+2. **Make changes in Cursor** on that up-to-date `main`.
+3. **Commit and push to GitHub** when Aidan asks, or when the work is ready to test on Replit. Push `main` to `origin`. Never force-push.
+4. **Hand off to Replit.** After a successful push, give Aidan this prompt to paste into Replit AI:
+
+   Pull the latest commits from GitHub (origin/main) with a fast-forward only. Do not rebase, squash, or force-push. Then test. If you make any changes, commit them on main and push to GitHub.
+
+5. Aidan tests in Replit.
+6. Replit AI pushes any Replit-side changes to GitHub.
+7. **Pull those changes in Cursor before continuing.** Fetch and fast-forward `origin/main` again. Do not start the next edit on stale `main`.
+
+## Hard rules
+
+- Prefer fast-forward only. If histories have diverged, stop and tell Aidan. Do not force-push, rebase shared commits, or invent a merge just to keep going.
+- Do not assume Replit has Cursor's latest work until Replit has pulled GitHub.
+- Do not assume Cursor has Replit's fixes until you have pulled GitHub.
+- The sessionStart hook tries to pull when the working tree is clean. Still pull explicitly at the start of a task and after a Replit push.
