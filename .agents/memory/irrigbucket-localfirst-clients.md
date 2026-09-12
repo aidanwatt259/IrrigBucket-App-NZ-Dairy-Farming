@@ -42,6 +42,8 @@ Managed-login success alone does not prove that Expo is serving a signed manifes
 
 **How to apply:** Verify signing separately from login and preserve existing project ownership. If managed authentication remains blocked, use the platform recovery flow rather than changing ownership or requesting manual credentials.
 
+Physical-device acceptance was confirmed after removing forced offline mode. A manual manifest request still appeared unsigned during that investigation, so that probe alone was not a reliable predictor of the managed Expo Go launch outcome.
+
 # SDK upgrade dependency checks in the workspace
 Use Expo CLI's recommended versions, then inspect actual installed React versions as well as the mobile manifest.
 
