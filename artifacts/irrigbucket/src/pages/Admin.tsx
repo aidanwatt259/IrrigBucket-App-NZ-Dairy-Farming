@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Droplet, ShieldCheck, FileText, HelpCircle, CheckCircle, Clock } from 'lucide-react';
+import { ArrowLeft, Droplet, ShieldCheck, FileText, HelpCircle, CheckCircle, Clock, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@workspace/replit-auth-web';
@@ -31,15 +31,27 @@ interface HelpRequest {
   createdAt: string;
 }
 
+interface FeedbackItem {
+  id: string;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  message: string;
+  contactInfo: string | null;
+  createdAt: string;
+}
+
 export default function Admin() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading, user } = useAuth();
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [helpRequests, setHelpRequests] = useState<HelpRequest[]>([]);
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [loadingHelp, setLoadingHelp] = useState(true);
+  const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [accessError, setAccessError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'reports' | 'help'>('reports');
+  const [tab, setTab] = useState<'reports' | 'help' | 'feedback'>('reports');
 
   useEffect(() => {
     if (!isAuthenticated && !isLoading) return;
@@ -62,6 +74,11 @@ export default function Admin() {
       .then((r) => r.json())
       .then((data) => { setHelpRequests(data.helpRequests ?? []); setLoadingHelp(false); })
       .catch(() => setLoadingHelp(false));
+
+    fetch('/api/admin/feedback', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => { setFeedbackItems(data.feedback ?? []); setLoadingFeedback(false); })
+      .catch(() => setLoadingFeedback(false));
   }, [isAuthenticated, isLoading]);
 
   function resolveHelpRequest(id: string) {
@@ -176,6 +193,16 @@ export default function Admin() {
             Help Requests
             {openHelp.length > 0 && (
               <span className="ml-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5 font-bold">{openHelp.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setTab('feedback')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab === 'feedback' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Feedback
+            {feedbackItems.length > 0 && (
+              <span className="ml-1 text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5">{feedbackItems.length}</span>
             )}
           </button>
         </div>
@@ -316,6 +343,45 @@ export default function Admin() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          )}
+          {tab === 'feedback' && (
+            <div className="space-y-4">
+              {loadingFeedback ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="h-6 w-6 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                </div>
+              ) : feedbackItems.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center h-32 gap-2 text-center">
+                    <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">No feedback submitted yet.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {feedbackItems.map((f) => (
+                    <Card key={f.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <MessageSquare className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(f.createdAt).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {f.userName && <span className="text-xs font-semibold text-foreground">· {f.userName}</span>}
+                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{f.message}</p>
+                        {f.contactInfo && (
+                          <p className="text-xs text-muted-foreground mt-2">Contact: {f.contactInfo}</p>
+                        )}
+                        {f.userEmail && !f.contactInfo && (
+                          <p className="text-xs text-muted-foreground mt-2">Email: {f.userEmail}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
             </div>
           )}

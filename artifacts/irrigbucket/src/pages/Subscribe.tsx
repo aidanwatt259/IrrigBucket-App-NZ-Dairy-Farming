@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, CreditCard, Droplet, Loader2, ShieldCheck } from "lucide-react";
@@ -27,6 +27,7 @@ export default function Subscribe() {
   } = useBilling();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const autoCheckoutAttempted = useRef(false);
 
   useEffect(() => {
     if (checkout !== "success" || !sessionId || !isAuthenticated || hasAccess) return;
@@ -42,7 +43,17 @@ export default function Subscribe() {
   }, [checkout, hasAccess, isLoading, returnTo, setLocation]);
 
   useEffect(() => {
-    if (!start || isLoading || !isAuthenticated || hasAccess || busy) return;
+    if (
+      !start ||
+      isLoading ||
+      !isAuthenticated ||
+      hasAccess ||
+      busy ||
+      autoCheckoutAttempted.current
+    ) {
+      return;
+    }
+    autoCheckoutAttempted.current = true;
     setBusy(true);
     startCheckout(returnTo)
       .catch((err: Error) => {

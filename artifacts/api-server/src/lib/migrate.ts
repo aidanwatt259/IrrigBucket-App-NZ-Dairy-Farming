@@ -2,71 +2,70 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 
-export async function runMigrations(): Promise<void> {
-  logger.info("Running database migrations...");
+let dbReady = false;
 
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid VARCHAR PRIMARY KEY,
-      sess JSONB NOT NULL,
-      expire TIMESTAMP NOT NULL
-    )
-  `);
+/** True once the database has been confirmed reachable. */
+export function isDbReady(): boolean {
+  return dbReady;
+}
 
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions (expire)
-  `);
+/** Test-only: force the readiness flag. Never call from production code. */
+export function __setDbReadyForTests(value: boolean): void {
+  dbReady = value;
+}
 
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-      email VARCHAR UNIQUE,
-      first_name VARCHAR,
-      last_name VARCHAR,
-      profile_image_url VARCHAR,
-      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-    )
-  `);
+const ATTEMPT_TIMEOUT_MS = 30_000;
+const MAX_BACKOFF_MS = 60_000;
 
-  await db.execute(sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR
-  `);
-  await db.execute(sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR
-  `);
-  await db.execute(sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR
-  `);
-  await db.execute(sql`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE
-  `);
+/**
+ * Probes database connectivity in the background with retries so a paused /
+ * slow-to-wake database can never block the server from opening its port
+ * (which would fail a publish). Retries forever with capped exponential
+ * backoff; each attempt has a hard timeout so a hung connection cannot wedge
+ * the loop.
+ *
+ * Schema is managed outside the application: drizzle-kit push applies the
+ * schema to the development database, and Replit's Publish flow diffs and
+ * applies it to production. No DDL runs at boot.
+ */
+export function startDbReadinessCheckInBackground(): void {
+  void (async () => {
+    let attempt = 0;
+    for (;;) {
+      attempt += 1;
+      try {
+        await Promise.race([
+          checkDbConnectivity(),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Database readiness check timed out after ${ATTEMPT_TIMEOUT_MS}ms`,
+                  ),
+                ),
+              ATTEMPT_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+        dbReady = true;
+        logger.info({ attempt }, "Database ready");
+        return;
+      } catch (err) {
+        const backoffMs = Math.min(
+          1000 * 2 ** Math.min(attempt - 1, 10),
+          MAX_BACKOFF_MS,
+        );
+        logger.warn(
+          { err, attempt, backoffMs },
+          "Database readiness check failed (database may be waking up); retrying",
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  })();
+}
 
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS reports (
-      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id VARCHAR REFERENCES users(id),
-      irrigator_type VARCHAR,
-      farm_name VARCHAR,
-      assessor_name VARCHAR,
-      test_date VARCHAR,
-      report_data JSONB NOT NULL,
-      du_percent VARCHAR,
-      du_status VARCHAR,
-      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await db.execute(sql`
-    CREATE TABLE IF NOT EXISTS help_requests (
-      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id VARCHAR REFERENCES users(id),
-      description TEXT NOT NULL,
-      contact_info VARCHAR,
-      resolved BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  logger.info("Database migrations complete");
+async function checkDbConnectivity(): Promise<void> {
+  await db.execute(sql`SELECT 1`);
 }

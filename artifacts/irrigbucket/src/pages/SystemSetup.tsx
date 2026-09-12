@@ -15,9 +15,21 @@ function FieldHint({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
 }
 
+const irrigatorNameLabel: Record<string, string> = {
+  pivot: 'Pivot Name / ID',
+  lateral: 'Machine Name / ID',
+  kline: 'K-Line Name / ID',
+  gun: 'Gun Name / ID',
+  solid: 'System Name / ID',
+  boom: 'Machine Name / ID',
+};
+
 export default function SystemSetup() {
   const [, setLocation] = useLocation();
-  const { irrigatorType, systemParams, setSystemParams, generatePlan } = useAppStore();
+  const {
+    irrigatorType, systemParams, setSystemParams, generatePlan,
+    operationData, setOperationData, testDate, windSpeed, setTestConditions,
+  } = useAppStore();
   const [hasEndGun, setHasEndGun] = useState<string>(systemParams.hasEndGun ?? 'No');
 
   useEffect(() => {
@@ -27,6 +39,20 @@ export default function SystemSetup() {
   const baseSchema = z.object({
     diameter: z.coerce.number().min(50).max(1000),
     targetDepth: z.coerce.number().min(1).max(100),
+    farmName: z.string().optional(),
+    irrigatorName: z.string().optional(),
+    assessorName: z.string().optional(),
+    testDate: z.string().optional(),
+    // Common to every irrigator type
+    operatingPressure: z.preprocess(
+      (v) => (v === '' || v == null ? undefined : v),
+      z.coerce.number().min(0).max(10000).optional(),
+    ),
+    pressureUnit: z.enum(['kPa', 'psi']).optional().default('kPa'),
+    testRunMinutes: z.preprocess(
+      (v) => (v === '' || v == null ? undefined : v),
+      z.coerce.number().min(1).max(1440).optional(),
+    ),
   });
 
   let schema = baseSchema as z.ZodTypeAny;
@@ -34,10 +60,12 @@ export default function SystemSetup() {
   if (irrigatorType === 'pivot') {
     schema = baseSchema.extend({
       armLength: z.coerce.number().min(10).max(5000),
-      spans: z.coerce.number().min(2).max(30).optional(),
+      spans: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(2).max(30).optional(),
+      ),
       hasEndGun: z.string().optional().default('No'),
       revolutionTime: z.coerce.number().min(0).max(200).optional(),
-      operatingPressure: z.coerce.number().min(0).max(1000).optional(),
       numSprinklers: z.coerce.number().min(0).max(10000).optional(),
       flowRate: z.coerce.number().min(0).max(10000).optional(),
     });
@@ -47,12 +75,23 @@ export default function SystemSetup() {
     schema = baseSchema.extend({
       podSpacing: z.coerce.number().min(5).max(50),
       podsPerLateral: z.coerce.number().min(2).max(30),
+      klineTestMinutes: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(1).max(1440).optional(),
+      ),
+      klineSetHours: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(0.1).max(48).optional(),
+      ),
     });
   } else if (irrigatorType === 'gun') {
     schema = baseSchema.extend({
       gunRadius: z.coerce.number().min(10).max(200),
       laneSpacing: z.coerce.number().min(10).max(200),
-      gunNumBuckets: z.coerce.number().min(4).max(100).optional(),
+      gunNumBuckets: z.preprocess(
+        (v) => (v === '' || v == null ? undefined : v),
+        z.coerce.number().min(4).max(100).optional(),
+      ),
     });
   } else if (irrigatorType === 'solid') {
     schema = baseSchema.extend({ sprinklerSpacing: z.coerce.number().min(5).max(50) });
@@ -69,12 +108,21 @@ export default function SystemSetup() {
     resolver: zodResolver(schema),
     defaultValues: {
       ...systemParams,
+      farmName: operationData.farmName ?? '',
+      irrigatorName: operationData.irrigatorName ?? '',
+      assessorName: operationData.assessorName ?? '',
+      testDate: testDate || new Date().toISOString().split('T')[0],
+      operatingPressure: systemParams.operatingPressure || undefined,
+      pressureUnit: systemParams.pressureUnit ?? 'kPa',
+      testRunMinutes: systemParams.testRunMinutes || undefined,
       armLength: systemParams.armLength || 400,
       spans: systemParams.spans || 8,
       hasEndGun: systemParams.hasEndGun ?? 'No',
       machineWidth: systemParams.machineWidth || 100,
       podSpacing: systemParams.podSpacing || 15,
       podsPerLateral: systemParams.podsPerLateral || 8,
+      klineTestMinutes: systemParams.klineTestMinutes || undefined,
+      klineSetHours: systemParams.klineSetHours || 24,
       gunRadius: systemParams.gunRadius || 40,
       laneSpacing: systemParams.laneSpacing || 60,
       gunNumBuckets: systemParams.gunNumBuckets || undefined,
@@ -85,7 +133,18 @@ export default function SystemSetup() {
   });
 
   const onSubmit = (data: FormData) => {
-    setSystemParams({ ...data, hasEndGun });
+    const { farmName, irrigatorName, assessorName, testDate: td, ...techParams } = data as FormData & {
+      farmName?: string; irrigatorName?: string; assessorName?: string; testDate?: string;
+    };
+    const merged = { ...techParams, hasEndGun } as Partial<typeof systemParams>;
+    // K-Line records its test duration in klineTestMinutes — mirror it into the
+    // generic testRunMinutes so intensity uses one consistent source everywhere.
+    if (irrigatorType === 'kline' && merged.klineTestMinutes) {
+      merged.testRunMinutes = merged.klineTestMinutes;
+    }
+    setSystemParams(merged);
+    setOperationData({ farmName: farmName ?? '', irrigatorName: irrigatorName ?? '', assessorName: assessorName ?? '' });
+    if (td) setTestConditions(td, windSpeed);
     generatePlan();
     setLocation('/plan');
   };
@@ -93,6 +152,7 @@ export default function SystemSetup() {
   if (!irrigatorType) return null;
 
   const isPivot = irrigatorType === 'pivot';
+  const isMoving = ['pivot', 'lateral', 'gun', 'boom'].includes(irrigatorType);
   const typeLabel: Record<string, string> = {
     pivot: 'Centre Pivot', lateral: 'Lateral Move', kline: 'K-Line / Pods',
     gun: 'Travelling Gun', solid: 'Solid Set / Fixed', boom: 'Roto Rainer',
@@ -102,6 +162,35 @@ export default function SystemSetup() {
     <AppLayout step={2} totalSteps={isPivot ? 6 : 5} title="System Details">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <form onSubmit={handleSubmit(onSubmit)}>
+
+          {/* Test Information — all irrigator types */}
+          <Card className="mb-6">
+            <CardContent className="pt-8 space-y-6">
+              <h3 className="text-xl font-bold font-display border-b pb-2">Test Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="farmName">Farm Name <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Input id="farmName" placeholder="e.g. Wiper Farm Road" {...register('farmName')} />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="irrigatorName">
+                    {irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}{' '}
+                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                  </Label>
+                  <Input id="irrigatorName" placeholder="e.g. Pivot 2 North" {...register('irrigatorName')} />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="assessorName">Assessor Name <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Input id="assessorName" placeholder="e.g. John Smith" {...register('assessorName')} />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor="testDate">Test Date <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Input id="testDate" type="date" {...register('testDate')} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="mb-8">
             <CardContent className="pt-8 space-y-8">
 
@@ -163,10 +252,6 @@ export default function SystemSetup() {
                       <h4 className="font-semibold text-base text-muted-foreground">Optional — for report detail</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <Label htmlFor="operatingPressure">Operating Pressure (bar)</Label>
-                          <Input id="operatingPressure" type="number" step="0.1" placeholder="e.g. 4.0" {...register('operatingPressure')} />
-                        </div>
-                        <div className="space-y-3">
                           <Label htmlFor="revolutionTime">Full Revolution Time (hours)</Label>
                           <Input id="revolutionTime" type="number" step="0.1" placeholder="e.g. 48" {...register('revolutionTime')} />
                         </div>
@@ -199,6 +284,18 @@ export default function SystemSetup() {
                       <div className="space-y-3">
                         <Label htmlFor="podsPerLateral">Pods Per Lateral</Label>
                         <Input id="podsPerLateral" type="number" {...register('podsPerLateral')} />
+                      </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="klineTestMinutes">Test Run Time (minutes)</Label>
+                        <Input id="klineTestMinutes" type="number" step="1" placeholder="e.g. 60" {...register('klineTestMinutes')} />
+                        {errors.klineTestMinutes && <p className="text-destructive text-sm">{String((errors.klineTestMinutes as { message?: string }).message)}</p>}
+                        <FieldHint>How long the pods ran while water collected in the buckets. Required to calculate application depth.</FieldHint>
+                      </div>
+                      <div className="space-y-3">
+                        <Label htmlFor="klineSetHours">Set Run Time (hours)</Label>
+                        <Input id="klineSetHours" type="number" step="0.5" placeholder="e.g. 24" {...register('klineSetHours')} />
+                        {errors.klineSetHours && <p className="text-destructive text-sm">{String((errors.klineSetHours as { message?: string }).message)}</p>}
+                        <FieldHint>How long the K-Line runs in one position per set. NZ K-Line is commonly 12–24 hrs.</FieldHint>
                       </div>
                     </>
                   )}
@@ -236,6 +333,42 @@ export default function SystemSetup() {
                         <Input id="nozzleSpacing" type="number" step="0.1" {...register('nozzleSpacing')} />
                       </div>
                     </>
+                  )}
+                </div>
+              </div>
+
+              {/* Test Conditions — common to every irrigator type */}
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold font-display border-b pb-2">Test Conditions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="operatingPressure">Water Input Pressure</Label>
+                    <div className="flex gap-2">
+                      <Input id="operatingPressure" type="number" step="0.1" placeholder="e.g. 400" className="flex-1" {...register('operatingPressure')} />
+                      <select
+                        aria-label="Pressure unit"
+                        className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        {...register('pressureUnit')}
+                      >
+                        <option value="kPa">kPa</option>
+                        <option value="psi">psi</option>
+                      </select>
+                    </div>
+                    {errors.operatingPressure && <p className="text-destructive text-sm">{String((errors.operatingPressure as { message?: string }).message)}</p>}
+                    <FieldHint>Water pressure measured at the irrigator. Enter in kPa or psi.</FieldHint>
+                  </div>
+
+                  {irrigatorType !== 'kline' && (
+                    <div className="space-y-3">
+                      <Label htmlFor="testRunMinutes">Test Run Time (minutes)</Label>
+                      <Input id="testRunMinutes" type="number" step="1" placeholder="e.g. 60" {...register('testRunMinutes')} />
+                      {errors.testRunMinutes && <p className="text-destructive text-sm">{String((errors.testRunMinutes as { message?: string }).message)}</p>}
+                      <FieldHint>
+                        {isMoving
+                          ? 'How long one full pass over the bucket line took. Used to calculate application intensity (mm/hr).'
+                          : 'How long the system ran while water collected in the buckets (min ~60 min). Used to calculate application intensity (mm/hr).'}
+                      </FieldHint>
+                    </div>
                   )}
                 </div>
               </div>

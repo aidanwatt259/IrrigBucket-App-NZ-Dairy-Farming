@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "Wmzs1DYXUh3gddvOP9SPe"
+uri = "file://artifacts/irrigbucket-mobile/assets/images/icon.png"
+type = "image"
+title = "irrigbucket app icon"
+
+[[outputs]]
+id = "nrQnStjwJGeBWRIsJpzQW"
+uri = "file://artifacts/irrigbucket-mobile/SMOKE_CHECKLIST.md"
+type = "text"
+title = "IrrigBucket Mobile — Offline-First Smoke Checklist"

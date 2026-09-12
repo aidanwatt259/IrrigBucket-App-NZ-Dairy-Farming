@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
-import { WifiOff, Wifi } from 'lucide-react';
+import { WifiOff, Wifi, CloudOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { subscribeSyncStatus } from '@/lib/syncEngine';
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOnlineBanner, setShowOnlineBanner] = useState(false);
+  const [syncErrored, setSyncErrored] = useState(false);
+
+  useEffect(() => {
+    return subscribeSyncStatus((status) => {
+      setSyncErrored(status.state === 'error' && status.pending > 0);
+    });
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -40,7 +48,20 @@ export function OfflineIndicator() {
           <span>No internet — your data is saved on this device</span>
         </motion.div>
       )}
-      {showOnlineBanner && (
+      {isOnline && syncErrored && (
+        <motion.div
+          key="sync-error"
+          initial={{ y: -60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -60, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-center gap-2 bg-amber-500 text-white text-sm font-medium py-2 px-4 shadow-md"
+        >
+          <CloudOff className="w-4 h-4 flex-shrink-0" />
+          <span>Sync unavailable — data saved locally. We'll retry automatically.</span>
+        </motion.div>
+      )}
+      {showOnlineBanner && !syncErrored && (
         <motion.div
           key="online"
           initial={{ y: -60, opacity: 0 }}

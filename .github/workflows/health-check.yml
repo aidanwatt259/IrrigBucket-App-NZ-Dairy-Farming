@@ -1,0 +1,44 @@
+# Uptime monitor for IrrigBucket cloud sync.
+#
+# Pings the deployed API's deep health check (which in turn pings Supabase)
+# every 10 minutes. Two jobs it does:
+#   1. Keeps the free-tier Supabase project active so it never auto-pauses.
+#   2. Fails the workflow run when /api/health returns non-200 (e.g. 503 when
+#      the database is paused/unreachable) — GitHub then emails the repo owner
+#      a "workflow failed" notification automatically.
+#
+# Make sure GitHub notification settings (Settings → Notifications → Actions)
+# have "Only notify for failed workflows" enabled (it is the default).
+
+name: Health check (cloud sync)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health
+        run: |
+          set -u
+          URL="https://irrigbucket.co.nz/api/health"
+          # Retry a couple of times to avoid alerting on a transient blip.
+          for attempt in 1 2 3; do
+            status=$(curl -sS -o body.json -w "%{http_code}" --max-time 20 "$URL" || echo "000")
+            echo "Attempt $attempt: HTTP $status"
+            cat body.json 2>/dev/null || true
+            echo
+            if [ "$status" = "200" ]; then
+              echo "Cloud sync healthy."
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::Cloud sync is DOWN — $URL returned HTTP $status after 3 attempts. Supabase may be paused/unreachable."
+          exit 1

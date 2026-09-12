@@ -9,10 +9,11 @@ export function isStripeConfigured(): boolean {
 }
 
 export function paywallEnforced(): boolean {
-  if (!isStripeConfigured()) {
-    return process.env.NODE_ENV === "production";
-  }
-  return true;
+  return (
+    process.env.STRIPE_PAYWALL_ENABLED === "true" &&
+    isStripeConfigured() &&
+    Boolean(process.env.STRIPE_WEBHOOK_SECRET)
+  );
 }
 
 export function getAnnualPriceNzd(): number {

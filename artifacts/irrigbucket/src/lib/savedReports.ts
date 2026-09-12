@@ -1,6 +1,8 @@
 import {
   SystemParams, Plan, SectionDefinition, PivotSection, OperationData,
 } from './calculations';
+import { db, savedReportToSyncReport } from './syncDb';
+import { syncEngine } from './syncEngine';
 
 export interface SavedReport {
   id: string;
@@ -15,44 +17,53 @@ export interface SavedReport {
   operationData: OperationData;
 }
 
-const STORAGE_KEY = 'irrigbucket_saved_reports';
-
-export function getSavedReports(): SavedReport[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+/**
+ * All non-deleted saved reports, newest-first. Reads straight from the durable
+ * Dexie store (the local-first source of truth behind the SyncEngine).
+ */
+export async function getSavedReports(): Promise<SavedReport[]> {
+  const stored = await db.reports.filter((r) => r.deletedAt === null).toArray();
+  // Newest-first by client modification time (ISO strings sort chronologically).
+  stored.sort((a, b) => b.clientUpdatedAt.localeCompare(a.clientUpdatedAt));
+  return stored.map((r) => r.reportData);
 }
 
-export function saveReport(
+/**
+ * Persist a new report locally AND enqueue an upsert with the SyncEngine, which
+ * drains it to the server when online. Returns the saved report immediately so
+ * the UI stays responsive offline.
+ */
+export async function saveReport(
   data: Omit<SavedReport, 'id' | 'savedAt'>,
-): SavedReport {
-  const reports = getSavedReports();
-  const report: SavedReport = {
-    ...data,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    savedAt: new Date().toISOString(),
-  };
-  // Avoid exact duplicates saved within the same session (same volumes array)
-  const isDuplicate = reports.some(
+): Promise<SavedReport> {
+  // Avoid exact duplicates saved within the same session (same volumes + date).
+  const existing = await getSavedReports();
+  const duplicate = existing.find(
     (r) => JSON.stringify(r.volumes) === JSON.stringify(data.volumes) &&
             r.testDate === data.testDate,
   );
-  if (isDuplicate) return reports[0];
-  reports.unshift(report);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  if (duplicate) return duplicate;
+
+  const report: SavedReport = {
+    ...data,
+    // The server's `reports.id` is a UUID column, so the client id (which is
+    // now used directly as the upsert key) must be a valid UUID.
+    id: crypto.randomUUID(),
+    savedAt: new Date().toISOString(),
+  };
+  await syncEngine.enqueueUpsert(savedReportToSyncReport(report));
   return report;
 }
 
-export function getReportById(id: string): SavedReport | null {
-  return getSavedReports().find((r) => r.id === id) ?? null;
+export async function getReportById(id: string): Promise<SavedReport | null> {
+  const stored = await db.reports.get(id);
+  if (!stored || stored.deletedAt !== null) return null;
+  return stored.reportData;
 }
 
-export function deleteReport(id: string): void {
-  const reports = getSavedReports().filter((r) => r.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+/** Tombstone a report locally and enqueue the delete for the server. */
+export async function deleteReport(id: string): Promise<void> {
+  await syncEngine.enqueueDelete(id);
 }
 
 export function getReportLabel(report: SavedReport): string {

@@ -1,34 +1,19 @@
-import * as oidc from "openid-client";
 import { Router, type IRouter, type Request, type Response } from "express";
-import {
-  GetCurrentAuthUserResponse,
-  ExchangeMobileAuthorizationCodeBody,
-  ExchangeMobileAuthorizationCodeResponse,
-  LogoutMobileSessionResponse,
-} from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
+import { db, usersTable, sessionsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { supabase } from "../lib/supabase";
 import {
   clearSession,
-  getOidcConfig,
   getSessionId,
   createSession,
-  deleteSession,
   SESSION_COOKIE,
   SESSION_TTL,
-  ISSUER_URL,
   type SessionData,
 } from "../lib/auth";
-
-const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+import { isAdmin } from "./reports.js";
 
 const router: IRouter = Router();
-
-function getOrigin(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host =
-    req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
-  return `${proto}://${host}`;
-}
 
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
@@ -40,41 +25,29 @@ function setSessionCookie(res: Response, sid: string) {
   });
 }
 
-function setOidcCookie(res: Response, name: string, value: string) {
-  res.cookie(name, value, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: OIDC_COOKIE_TTL,
-  });
-}
-
-function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
-  }
-  return value;
-}
-
-async function upsertUser(claims: Record<string, unknown>) {
-  const userData = {
-    id: claims.sub as string,
-    email: (claims.email as string) || null,
-    firstName: (claims.first_name as string) || null,
-    lastName: (claims.last_name as string) || null,
-    profileImageUrl: (claims.profile_image_url || claims.picture) as
-      | string
-      | null,
-  };
-
+async function upsertUser(userData: {
+  id: string;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+}) {
   const [user] = await db
     .insert(usersTable)
-    .values(userData)
+    .values({
+      id: userData.id,
+      email: userData.email ?? null,
+      firstName: userData.firstName ?? null,
+      lastName: userData.lastName ?? null,
+      profileImageUrl: userData.profileImageUrl ?? null,
+    })
     .onConflictDoUpdate({
       target: usersTable.id,
       set: {
-        ...userData,
+        email: userData.email ?? null,
+        firstName: userData.firstName ?? null,
+        lastName: userData.lastName ?? null,
+        profileImageUrl: userData.profileImageUrl ?? null,
         updatedAt: new Date(),
       },
     })
@@ -82,94 +55,61 @@ async function upsertUser(claims: Record<string, unknown>) {
   return user;
 }
 
+// Return public Supabase config so the browser can initialise its own client.
+// The anon key is intentionally public — it is scoped by Row Level Security.
+router.get("/config", (_req: Request, res: Response) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL ?? "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? "",
+  });
+});
+
+// Get the currently authenticated user from the server session.
 router.get("/auth/user", (req: Request, res: Response) => {
   res.json(
     GetCurrentAuthUserResponse.parse({
-      user: req.isAuthenticated() ? req.user : null,
+      user: req.isAuthenticated()
+        ? { ...req.user, isAdmin: isAdmin(req) }
+        : null,
     }),
   );
 });
 
-router.get("/login", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-  const callbackUrl = `${origin}/auth-callback`;
+// Exchange a valid Supabase access token for a server-side session cookie.
+// Called by the frontend immediately after a successful Supabase sign-in.
+router.post("/auth/supabase-session", async (req: Request, res: Response) => {
+  const { access_token, refresh_token } = req.body ?? {};
 
-  const returnTo = getSafeReturnTo(req.query.returnTo);
+  if (!access_token) {
+    res.status(400).json({ error: "access_token is required" });
+    return;
+  }
 
-  const state = oidc.randomState();
-  const nonce = oidc.randomNonce();
-  const codeVerifier = oidc.randomPKCECodeVerifier();
-  const codeChallenge = await oidc.calculatePKCECodeChallenge(codeVerifier);
+  // Validate the token against Supabase Auth — this is a live API call.
+  const { data: { user }, error } = await supabase.auth.getUser(access_token);
 
-  const redirectTo = oidc.buildAuthorizationUrl(config, {
-    redirect_uri: callbackUrl,
-    scope: "openid email profile offline_access",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-    prompt: "login consent",
-    state,
-    nonce,
+  if (error || !user) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  const meta = user.user_metadata ?? {};
+
+  // Split full_name into first/last if individual fields are absent.
+  const fullNameParts = (meta.full_name as string | undefined)?.split(" ") ?? [];
+  const firstName = (meta.first_name as string | undefined) ?? fullNameParts[0] ?? null;
+  const lastName =
+    (meta.last_name as string | undefined) ??
+    (fullNameParts.length > 1 ? fullNameParts.slice(1).join(" ") : null);
+
+  const dbUser = await upsertUser({
+    id: user.id,
+    email: user.email,
+    firstName,
+    lastName,
+    profileImageUrl: (meta.avatar_url as string | undefined) ?? null,
   });
 
-  setOidcCookie(res, "code_verifier", codeVerifier);
-  setOidcCookie(res, "nonce", nonce);
-  setOidcCookie(res, "state", state);
-  setOidcCookie(res, "return_to", returnTo);
-
-  res.redirect(redirectTo.href);
-});
-
-// Query params are not validated because the OIDC provider may include
-// parameters not expressed in the schema.
-router.get("/callback", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
-
-  const codeVerifier = req.cookies?.code_verifier;
-  const nonce = req.cookies?.nonce;
-  const expectedState = req.cookies?.state;
-
-  if (!codeVerifier || !expectedState) {
-    res.redirect("/api/login");
-    return;
-  }
-
-  const currentUrl = new URL(
-    `${callbackUrl}?${new URL(req.url, `http://${req.headers.host}`).searchParams}`,
-  );
-
-  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
-  try {
-    tokens = await oidc.authorizationCodeGrant(config, currentUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedNonce: nonce,
-      expectedState,
-      idTokenExpected: true,
-    });
-  } catch {
-    res.redirect("/api/login");
-    return;
-  }
-
-  const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  res.clearCookie("code_verifier", { path: "/" });
-  res.clearCookie("nonce", { path: "/" });
-  res.clearCookie("state", { path: "/" });
-  res.clearCookie("return_to", { path: "/" });
-
-  const claims = tokens.claims();
-  if (!claims) {
-    res.redirect("/api/login");
-    return;
-  }
-
-  const dbUser = await upsertUser(
-    claims as unknown as Record<string, unknown>,
-  );
-
-  const now = Math.floor(Date.now() / 1000);
   const sessionData: SessionData = {
     user: {
       id: dbUser.id,
@@ -178,174 +118,70 @@ router.get("/callback", async (req: Request, res: Response) => {
       lastName: dbUser.lastName,
       profileImageUrl: dbUser.profileImageUrl,
     },
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
+    access_token,
+    refresh_token: refresh_token ?? undefined,
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
   };
 
   const sid = await createSession(sessionData);
   setSessionCookie(res, sid);
-  res.redirect(returnTo);
+
+  // Bearer (mobile) clients have no cookie jar and need the session id in the
+  // body. They opt in with `returnSid: true`. Cookie clients (web) keep using
+  // the httpOnly cookie ONLY — the sid is never placed in their response body,
+  // preserving the XSS-token-theft protection httpOnly provides.
+  const returnSid = req.body?.returnSid === true;
+  res.setHeader("Cache-Control", "no-store");
+  res.json(returnSid ? { success: true, sid } : { success: true });
 });
 
-// Called by the frontend AuthCallback component after Replit OIDC redirects
-// to /auth-callback (a frontend route). Cookies set by /api/login are still
-// present so we can complete the PKCE exchange server-side.
-router.get("/login-complete", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-  const redirectUri = `${origin}/auth-callback`;
-
-  const codeVerifier = req.cookies?.code_verifier;
-  const nonce = req.cookies?.nonce;
-  const expectedState = req.cookies?.state;
-  const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  if (!codeVerifier || !expectedState) {
-    res.status(400).json({ error: "Missing OIDC session cookies" });
-    return;
-  }
-
-  const code = req.query.code as string | undefined;
-  const state = req.query.state as string | undefined;
-  const iss = req.query.iss as string | undefined;
-
-  if (!code || !state) {
-    res.status(400).json({ error: "Missing code or state" });
-    return;
-  }
-
-  const callbackUrl = new URL(redirectUri);
-  callbackUrl.searchParams.set("code", code);
-  callbackUrl.searchParams.set("state", state);
-  if (iss) callbackUrl.searchParams.set("iss", iss);
-
-  let tokens: oidc.TokenEndpointResponse & oidc.TokenEndpointResponseHelpers;
-  try {
-    tokens = await oidc.authorizationCodeGrant(config, callbackUrl, {
-      pkceCodeVerifier: codeVerifier,
-      expectedNonce: nonce,
-      expectedState,
-      idTokenExpected: true,
-    });
-  } catch (err) {
-    req.log.error({ err }, "login-complete token exchange failed");
-    res.status(401).json({ error: "Token exchange failed" });
-    return;
-  }
-
-  res.clearCookie("code_verifier", { path: "/" });
-  res.clearCookie("nonce", { path: "/" });
-  res.clearCookie("state", { path: "/" });
-  res.clearCookie("return_to", { path: "/" });
-
-  const claims = tokens.claims();
-  if (!claims) {
-    res.status(401).json({ error: "No claims in ID token" });
-    return;
-  }
-
-  const dbUser = await upsertUser(claims as unknown as Record<string, unknown>);
-
-  const now = Math.floor(Date.now() / 1000);
-  const sessionData: SessionData = {
-    user: {
-      id: dbUser.id,
-      email: dbUser.email,
-      firstName: dbUser.firstName,
-      lastName: dbUser.lastName,
-      profileImageUrl: dbUser.profileImageUrl,
-    },
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
-  };
-
-  const sid = await createSession(sessionData);
-  setSessionCookie(res, sid);
-  res.json({ success: true, returnTo });
-});
-
+// Clear the server session. The frontend handles Supabase signOut separately.
 router.get("/logout", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-
   const sid = getSessionId(req);
   await clearSession(res, sid);
-
-  const endSessionUrl = oidc.buildEndSessionUrl(config, {
-    client_id: process.env.REPL_ID!,
-    post_logout_redirect_uri: origin,
-  });
-
-  res.redirect(endSessionUrl.href);
+  res.redirect("/");
 });
 
-router.post(
-  "/mobile-auth/token-exchange",
-  async (req: Request, res: Response) => {
-    const parsed = ExchangeMobileAuthorizationCodeBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Missing or invalid required parameters" });
+// Permanently delete the authenticated user's account and ALL associated data.
+// Required by the Apple App Store (Guideline 5.1.1(v)) and Google Play for apps
+// that let users create an account. Unlike DELETE /reports/:id (a recoverable
+// soft-delete), this is an irreversible hard delete.
+router.delete("/auth/account", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  // 1. Hard-delete every user-owned row so no PII lingers in the database.
+  for (const table of ["reports", "help_requests", "feedback"] as const) {
+    const { error } = await supabase.from(table).delete().eq("user_id", userId);
+    if (error) {
+      console.error(`Failed to delete ${table} during account deletion:`, error);
+      res.status(500).json({ error: "Failed to delete account data" });
       return;
     }
-
-    const { code, code_verifier, redirect_uri, state, nonce } = parsed.data;
-
-    try {
-      const config = await getOidcConfig();
-
-      const callbackUrl = new URL(redirect_uri);
-      callbackUrl.searchParams.set("code", code);
-      callbackUrl.searchParams.set("state", state);
-      callbackUrl.searchParams.set("iss", ISSUER_URL);
-
-      const tokens = await oidc.authorizationCodeGrant(config, callbackUrl, {
-        pkceCodeVerifier: code_verifier,
-        expectedNonce: nonce ?? undefined,
-        expectedState: state,
-        idTokenExpected: true,
-      });
-
-      const claims = tokens.claims();
-      if (!claims) {
-        res.status(401).json({ error: "No claims in ID token" });
-        return;
-      }
-
-      const dbUser = await upsertUser(
-        claims as unknown as Record<string, unknown>,
-      );
-
-      const now = Math.floor(Date.now() / 1000);
-      const sessionData: SessionData = {
-        user: {
-          id: dbUser.id,
-          email: dbUser.email,
-          firstName: dbUser.firstName,
-          lastName: dbUser.lastName,
-          profileImageUrl: dbUser.profileImageUrl,
-        },
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: tokens.expiresIn() ? now + tokens.expiresIn()! : claims.exp,
-      };
-
-      const sid = await createSession(sessionData);
-      res.json(ExchangeMobileAuthorizationCodeResponse.parse({ token: sid }));
-    } catch (err) {
-      req.log.error({ err }, "Mobile token exchange error");
-      res.status(500).json({ error: "Token exchange failed" });
-    }
-  },
-);
-
-router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
-  const sid = getSessionId(req);
-  if (sid) {
-    await deleteSession(sid);
   }
-  res.json(LogoutMobileSessionResponse.parse({ success: true }));
+
+  // 2. Remove the local user mirror and EVERY session for this user (all
+  //    devices), so no stale sid can authenticate as the deleted account.
+  await db.delete(usersTable).where(eq(usersTable.id, userId));
+  await db
+    .delete(sessionsTable)
+    .where(sql`${sessionsTable.sess} -> 'user' ->> 'id' = ${userId}`);
+
+  // 3. Delete the Supabase Auth identity itself (login + email). Best-effort:
+  //    the account's data is already gone, so a failure here must not strand the
+  //    user with an account they cannot delete — log it and still succeed.
+  const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+  if (authError) {
+    console.error("Failed to delete Supabase Auth user:", authError);
+  }
+
+  // 4. Clear the web session cookie (no-op for bearer/mobile clients).
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true });
 });
 
 export default router;

@@ -28,8 +28,11 @@ export default function SavedReport() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const r = getReportById(params.id);
-    setReport(r);
+    let active = true;
+    getReportById(params.id)
+      .then((r) => { if (active) setReport(r); })
+      .catch(() => { if (active) setReport(null); });
+    return () => { active = false; };
   }, [params.id]);
 
   const results = useMemo(() => {
@@ -42,9 +45,9 @@ export default function SavedReport() {
     );
   }, [report]);
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!report) return;
-    deleteReport(report.id);
+    await deleteReport(report.id);
     setLocation('/');
   }
 

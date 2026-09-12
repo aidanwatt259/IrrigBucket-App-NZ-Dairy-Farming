@@ -10,99 +10,19 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { LayoutDiagram } from '@/components/irrigation/LayoutDiagram';
 
-// Colour scheme for the pivot sections
-const SECTION_COLORS = {
-  A: { fill: '#e2e8f0', text: '#94a3b8', label: 'No testing zone' },
-  B: { fill: '#dbeafe', border: '#3b82f6', text: '#1d4ed8', dot: '#3b82f6' },
-  C: { fill: '#ccfbf1', border: '#0d9488', text: '#0f766e', dot: '#0d9488' },
-  gun: { fill: '#ffedd5', border: '#f97316', text: '#c2410c', dot: '#f97316' },
+const NON_PIVOT_DIAGRAM_HINT: Record<string, string> = {
+  lateral: 'Lay one line of buckets across the machine width, perpendicular to the direction of travel. The machine passes over the line once.',
+  kline: 'Place one bucket beside each pod in a representative set, plus one just beyond each end of the line.',
+  gun: 'Lay a line of buckets across the full wetted width, perpendicular to the gun run. Start the first bucket half a spacing in from the edge; overlap into the next lane if the lane is narrower than the wetted width.',
+  solid: 'Set a grid of buckets inside one cell bounded by four adjacent sprinkler heads.',
+  boom: 'Lay one line of buckets across the boom width, directly under the boom path and perpendicular to travel.',
 };
-
-function PivotDiagram({ pivotSections, armLength }: { pivotSections: PivotSection[]; armLength: number }) {
-  const W = 400; const H = 100;
-  const ML = 20; const MR = 20;
-  const armW = W - ML - MR;
-  const hasGun = pivotSections.some(s => s.isGun);
-
-  const getX = (m: number) => ML + (m / (hasGun ? (armLength + 25) : armLength)) * armW;
-
-  const sectionA = pivotSections.find(s => s.isExcluded);
-  const sectionB = pivotSections.find(s => !s.isExcluded && !s.isGun && pivotSections.filter(x => !x.isExcluded && !x.isGun).indexOf(s) === 0);
-  const sectionC = pivotSections.find(s => !s.isExcluded && !s.isGun && pivotSections.filter(x => !x.isExcluded && !x.isGun).indexOf(s) === 1);
-  const sectionGun = pivotSections.find(s => s.isGun);
-
-  const renderDots = (sec: PivotSection, color: string) => {
-    const dots: React.ReactNode[] = [];
-    const maxDots = Math.min(sec.buckets, 15);
-    for (let i = 0; i < maxDots; i++) {
-      const pos = sec.from + (sec.buckets === 1 ? 0 : i * (sec.sectionLength / (sec.buckets - 1)));
-      dots.push(
-        <circle key={i} cx={getX(pos)} cy={55} r={3.5} fill={color} />
-      );
-    }
-    return dots;
-  };
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-label="Pivot section diagram">
-      {/* Ground line */}
-      <line x1={ML} y1={60} x2={W - MR} y2={60} stroke="#94a3b8" strokeWidth={3} />
-
-      {/* Section A — grey */}
-      {sectionA && (
-        <rect x={getX(sectionA.from)} y={45} width={getX(sectionA.to) - getX(sectionA.from)} height={15}
-          fill={SECTION_COLORS.A.fill} rx={2} />
-      )}
-      {/* Section B — blue */}
-      {sectionB && (
-        <rect x={getX(sectionB.from)} y={45} width={getX(sectionB.to) - getX(sectionB.from)} height={15}
-          fill={SECTION_COLORS.B.fill} stroke={SECTION_COLORS.B.border} strokeWidth={1} rx={2} />
-      )}
-      {/* Section C — teal */}
-      {sectionC && (
-        <rect x={getX(sectionC.from)} y={45} width={getX(sectionC.to) - getX(sectionC.from)} height={15}
-          fill={SECTION_COLORS.C.fill} stroke={SECTION_COLORS.C.border} strokeWidth={1} rx={2} />
-      )}
-      {/* End Gun — orange */}
-      {sectionGun && (
-        <rect x={getX(sectionGun.from)} y={45} width={getX(sectionGun.to) - getX(sectionGun.from)} height={15}
-          fill={SECTION_COLORS.gun.fill} stroke={SECTION_COLORS.gun.border} strokeWidth={1} rx={2} />
-      )}
-
-      {/* Bucket dots */}
-      {sectionB && renderDots(sectionB, SECTION_COLORS.B.dot!)}
-      {sectionC && renderDots(sectionC, SECTION_COLORS.C.dot!)}
-      {sectionGun && renderDots(sectionGun, SECTION_COLORS.gun.dot!)}
-
-      {/* Pivot centre mark */}
-      <circle cx={ML} cy={60} r={5} fill="#1e293b" />
-      <text x={ML} y={80} textAnchor="middle" fill="#64748b" fontSize={9}>Centre</text>
-
-      {/* End tower mark */}
-      <line x1={getX(armLength)} y1={40} x2={getX(armLength)} y2={70} stroke="#64748b" strokeWidth={1.5} strokeDasharray="3,2" />
-      <text x={getX(armLength)} y={82} textAnchor="middle" fill="#64748b" fontSize={9}>Tip</text>
-
-      {/* Section labels */}
-      {sectionA && (
-        <text x={(getX(sectionA.from) + getX(sectionA.to)) / 2} y={38} textAnchor="middle" fill={SECTION_COLORS.A.text} fontSize={8} fontWeight="bold">A</text>
-      )}
-      {sectionB && (
-        <text x={(getX(sectionB.from) + getX(sectionB.to)) / 2} y={38} textAnchor="middle" fill={SECTION_COLORS.B.text} fontSize={8} fontWeight="bold">B</text>
-      )}
-      {sectionC && (
-        <text x={(getX(sectionC.from) + getX(sectionC.to)) / 2} y={38} textAnchor="middle" fill={SECTION_COLORS.C.text} fontSize={8} fontWeight="bold">C</text>
-      )}
-      {sectionGun && (
-        <text x={(getX(sectionGun.from) + getX(sectionGun.to)) / 2} y={38} textAnchor="middle" fill={SECTION_COLORS.gun.text} fontSize={8} fontWeight="bold">Gun</text>
-      )}
-    </svg>
-  );
-}
 
 export default function TestPlan() {
   const [, setLocation] = useLocation();
-  const { plan, irrigatorType, pivotSections, commitPivotSetup } = useAppStore();
+  const { plan, irrigatorType, systemParams, pivotSections, commitPivotSetup } = useAppStore();
   const [checks, setChecks] = useState([false, false, false, false, false]);
   const [editableSections, setEditableSections] = useState<PivotSection[]>([]);
 
@@ -204,7 +124,7 @@ export default function TestPlan() {
             <Card>
               <CardContent className="pt-5 pb-3">
                 <h3 className="text-base font-bold font-display mb-3">Pivot Layout Diagram</h3>
-                <PivotDiagram pivotSections={editableSections} armLength={plan.armLength ?? 400} />
+                <LayoutDiagram type="pivot" params={systemParams} plan={plan} pivotSections={editableSections} />
                 <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 inline-block" /> Section A — no testing</span>
                   <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-100 border border-blue-400 inline-block" /> Section B — mid spans</span>
@@ -310,10 +230,26 @@ export default function TestPlan() {
                 </CardContent>
               </Card>
             </div>
+            {/* Bucket layout diagram */}
+            <Card>
+              <CardContent className="pt-5 pb-3">
+                <h3 className="text-base font-bold font-display mb-3">Bucket Layout Diagram</h3>
+                <LayoutDiagram type={irrigatorType ?? ''} params={systemParams} plan={plan} />
+                <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-600 inline-block" /> Bucket position</span>
+                  {(irrigatorType === 'kline' || irrigatorType === 'solid') && (
+                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-teal-600 inline-block" /> {irrigatorType === 'kline' ? 'Pod' : 'Sprinkler head'}</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="pt-8">
                 <h3 className="text-xl font-bold font-display mb-4">Placement Pattern</h3>
                 <p className="text-lg text-muted-foreground">{plan.pattern}</p>
+                {irrigatorType && NON_PIVOT_DIAGRAM_HINT[irrigatorType] && (
+                  <p className="text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50">{NON_PIVOT_DIAGRAM_HINT[irrigatorType]}</p>
+                )}
               </CardContent>
             </Card>
           </>

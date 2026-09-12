@@ -7,7 +7,6 @@ import { calculateTestResults } from '@/lib/calculations';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { saveReport } from '@/lib/savedReports';
-import { useBilling } from '@/hooks/use-billing';
 import { ReportContent } from '@/components/report/ReportContent';
 import { BillingPaywall } from '@/components/billing/BillingPaywall';
 
@@ -17,8 +16,11 @@ export default function Results() {
     volumes, systemParams, plan, windSpeed, testDate,
     sections, irrigatorType, operationData, reset,
   } = useAppStore();
+
+  // Guard so the report is persisted exactly once per mount. Saving writes to
+  // the local-first Dexie store AND enqueues an upsert with the SyncEngine,
+  // which drains to the server when online — no separate API call needed.
   const savedRef = useRef(false);
-  const { isAuthenticated, hasAccess, isLoading: billingLoading } = useBilling();
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -30,40 +32,11 @@ export default function Results() {
   );
 
   useEffect(() => {
-    if (billingLoading || !hasAccess) return;
-    if (plan && results && volumes.some(v => v > 0) && !savedRef.current) {
-      savedRef.current = true;
-      const saved = saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
-
-      if (isAuthenticated) {
-        fetch('/api/reports', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            irrigatorType: irrigatorType ?? null,
-            farmName: operationData.farmName ?? null,
-            assessorName: operationData.assessorName ?? null,
-            testDate: testDate || null,
-            duPercent: (results.du * 100).toFixed(1),
-            duStatus: results.duStatus,
-            reportData: {
-              id: saved.id,
-              savedAt: saved.savedAt,
-              irrigatorType,
-              systemParams,
-              plan,
-              volumes,
-              windSpeed,
-              testDate,
-              sections,
-              operationData,
-            },
-          }),
-        }).catch(() => {});
-      }
-    }
-  }, [plan, results, isAuthenticated, hasAccess, billingLoading]);
+    if (!plan || !results || !volumes.some(v => v > 0)) return;
+    if (savedRef.current) return;
+    savedRef.current = true;
+    void saveReport({ irrigatorType, systemParams, plan, volumes, windSpeed, testDate, sections, operationData });
+  }, [plan, results, volumes, irrigatorType, systemParams, windSpeed, testDate, sections, operationData]);
 
   if (!plan || !results) return null;
 

@@ -30,7 +30,7 @@ interface AppState {
 }
 
 const STORAGE_KEY = 'irrigbucket-draft';
-const defaultParams: SystemParams = { diameter: 250, targetDepth: 15 };
+const defaultParams: SystemParams = { diameter: 250, targetDepth: 15, pressureUnit: 'kPa' };
 
 type PersistedSlice = {
   irrigatorType: string | null;
