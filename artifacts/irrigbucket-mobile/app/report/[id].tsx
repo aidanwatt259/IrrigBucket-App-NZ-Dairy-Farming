@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
 import { useColors } from '@/hooks/useColors';
-import { calculateTestResults, calcKlineApplication } from '@/lib/calculations';
+import { calculateTestResults, calcKlineApplication, getEffectiveTestRunMinutes } from '@/lib/calculations';
 
 const TYPE_LABELS: Record<string, string> = {
   pivot: 'Centre Pivot', lateral: 'Lateral Move', kline: 'K-Line / Pods',
@@ -31,7 +31,12 @@ export default function ReportDetailScreen() {
 
   const klineApp = useMemo(
     () => report && report.irrigatorType === 'kline' && results
-      ? calcKlineApplication(results.avgDepth, report.systemParams.targetDepth, report.systemParams.klineTestMinutes, report.systemParams.klineSetHours)
+      ? calcKlineApplication(
+          results.avgDepth,
+          report.systemParams.targetDepth,
+          getEffectiveTestRunMinutes('kline', report.systemParams),
+          report.systemParams.klineSetHours,
+        )
       : null,
     [report, results]
   );

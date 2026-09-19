@@ -289,7 +289,7 @@ export default function SystemSetup() {
                         <Label htmlFor="klineTestMinutes">Test Run Time (minutes)</Label>
                         <Input id="klineTestMinutes" type="number" step="1" placeholder="e.g. 60" {...register('klineTestMinutes')} />
                         {errors.klineTestMinutes && <p className="text-destructive text-sm">{String((errors.klineTestMinutes as { message?: string }).message)}</p>}
-                        <FieldHint>How long the pods ran while water collected in the buckets. Required to calculate application depth.</FieldHint>
+                        <FieldHint>How long the pods ran while water collected in the buckets. Needed to calculate application depth; leave blank if you only need DU.</FieldHint>
                       </div>
                       <div className="space-y-3">
                         <Label htmlFor="klineSetHours">Set Run Time (hours)</Label>

@@ -6,6 +6,8 @@ export interface SystemParams {
   hasEndGun?: string;
   revolutionTime?: number;
   operatingPressure?: number;
+  pressureUnit?: 'kPa' | 'psi';
+  testRunMinutes?: number;
   numSprinklers?: number;
   flowRate?: number;
   machineWidth?: number;
@@ -204,6 +206,30 @@ export interface KlineApplication {
   perSetDepth: number;
   depthDiff: number;
   depthStatus: 'good' | 'fair' | 'poor';
+}
+
+export function calcApplicationRate(avgDepthMm: number, testRunMinutes?: number): number | null {
+  if (!testRunMinutes || testRunMinutes <= 0 || avgDepthMm <= 0) return null;
+  return avgDepthMm / (testRunMinutes / 60);
+}
+
+export function getEffectiveTestRunMinutes(type: string, params: SystemParams): number | undefined {
+  if (params.testRunMinutes && params.testRunMinutes > 0) return params.testRunMinutes;
+  if (type === 'kline' && params.klineTestMinutes && params.klineTestMinutes > 0) return params.klineTestMinutes;
+  return undefined;
+}
+
+export const PSI_TO_KPA = 6.89476;
+
+export function pressureToKpa(value?: number, unit?: 'kPa' | 'psi'): number | null {
+  if (value == null || !isFinite(value) || value <= 0) return null;
+  return unit === 'psi' ? value * PSI_TO_KPA : value;
+}
+
+export function formatPressure(params: SystemParams): string | null {
+  const { operatingPressure, pressureUnit } = params;
+  if (operatingPressure == null || !isFinite(operatingPressure) || operatingPressure <= 0) return null;
+  return `${operatingPressure} ${pressureUnit ?? 'kPa'}`;
 }
 
 // NZ bucket-test method for stationary K-Line/pod systems:

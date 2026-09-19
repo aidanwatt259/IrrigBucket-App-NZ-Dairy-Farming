@@ -14,6 +14,15 @@ const TYPE_LABELS: Record<string, string> = {
   gun: 'Travelling Gun', solid: 'Solid Set / Fixed', boom: 'Roto Rainer',
 };
 
+const irrigatorNameLabel: Record<string, string> = {
+  pivot: 'Pivot Name / ID',
+  lateral: 'Machine Name / ID',
+  kline: 'K-Line Name / ID',
+  gun: 'Gun Name / ID',
+  solid: 'System Name / ID',
+  boom: 'Machine Name / ID',
+};
+
 // Parse an optional numeric field: blank or non-finite input becomes undefined
 // rather than persisting NaN.
 const optNum = (s: string): number | undefined => {
@@ -23,11 +32,18 @@ const optNum = (s: string): number | undefined => {
 
 export default function SetupScreen() {
   const colors = useColors();
-  const { irrigatorType, systemParams, setSystemParams, generatePlan } = useWizard();
+  const {
+    irrigatorType, systemParams, setSystemParams, generatePlan,
+    operationData, setOperationData, testDate, windSpeed, setTestConditions,
+  } = useWizard();
 
   const [values, setValues] = useState({
+    farmName: operationData.farmName ?? '',
+    irrigatorName: operationData.irrigatorName ?? '',
+    assessorName: operationData.assessorName ?? '',
+    testDate: testDate || new Date().toISOString().split('T')[0],
     diameter: String(systemParams.diameter || 250),
-    targetDepth: String(systemParams.targetDepth || 20),
+    targetDepth: String(systemParams.targetDepth || 15),
     armLength: String(systemParams.armLength || 400),
     spans: String(systemParams.spans || 8),
     hasEndGun: systemParams.hasEndGun ?? 'No',
@@ -43,6 +59,8 @@ export default function SetupScreen() {
     boomWidth: String(systemParams.boomWidth || 30),
     nozzleSpacing: String(systemParams.nozzleSpacing || 2),
     operatingPressure: systemParams.operatingPressure != null ? String(systemParams.operatingPressure) : '',
+    pressureUnit: (systemParams.pressureUnit === 'psi' ? 'psi' : 'kPa') as 'kPa' | 'psi',
+    testRunMinutes: systemParams.testRunMinutes ? String(systemParams.testRunMinutes) : '',
     revolutionTime: systemParams.revolutionTime != null ? String(systemParams.revolutionTime) : '',
     numSprinklers: systemParams.numSprinklers != null ? String(systemParams.numSprinklers) : '',
     flowRate: systemParams.flowRate != null ? String(systemParams.flowRate) : '',
@@ -54,16 +72,21 @@ export default function SetupScreen() {
   // prev/next arrows follow the same on-screen order automatically).
   const inputRefs = useRef<Record<string, TextInput | null>>({});
   const orderedFields = useMemo<string[]>(() => {
-    const base = ['diameter', 'targetDepth'];
+    const info = ['farmName', 'irrigatorName', 'assessorName', 'testDate'];
+    const bucket = ['diameter', 'targetDepth'];
+    let typeFields: string[] = [];
     switch (irrigatorType) {
-      case 'pivot': return [...base, 'armLength', 'spans', 'operatingPressure', 'revolutionTime', 'numSprinklers', 'flowRate'];
-      case 'lateral': return [...base, 'machineWidth'];
-      case 'kline': return [...base, 'podSpacing', 'podsPerLateral', 'klineTestMinutes', 'klineSetHours'];
-      case 'gun': return [...base, 'gunRadius', 'laneSpacing', 'gunNumBuckets'];
-      case 'solid': return [...base, 'sprinklerSpacing'];
-      case 'boom': return [...base, 'boomWidth', 'nozzleSpacing'];
-      default: return base;
+      case 'pivot': typeFields = ['armLength', 'spans', 'revolutionTime', 'numSprinklers', 'flowRate']; break;
+      case 'lateral': typeFields = ['machineWidth']; break;
+      case 'kline': typeFields = ['podSpacing', 'podsPerLateral', 'klineTestMinutes', 'klineSetHours']; break;
+      case 'gun': typeFields = ['gunRadius', 'laneSpacing', 'gunNumBuckets']; break;
+      case 'solid': typeFields = ['sprinklerSpacing']; break;
+      case 'boom': typeFields = ['boomWidth', 'nozzleSpacing']; break;
     }
+    const conditions = irrigatorType === 'kline'
+      ? ['operatingPressure']
+      : ['operatingPressure', 'testRunMinutes'];
+    return [...info, ...bucket, ...typeFields, ...conditions];
   }, [irrigatorType]);
 
   useEffect(() => {
@@ -99,12 +122,15 @@ export default function SetupScreen() {
     if (irrigatorType === 'gun') { num('gunRadius', 10, 200, 'Gun radius'); num('laneSpacing', 10, 200, 'Lane spacing'); }
     if (irrigatorType === 'solid') num('sprinklerSpacing', 5, 50, 'Sprinkler spacing');
     if (irrigatorType === 'boom') { num('boomWidth', 5, 100, 'Boom width'); num('nozzleSpacing', 0.5, 10, 'Nozzle spacing'); }
+    if (values.operatingPressure.trim() !== '') num('operatingPressure', 0, 10000, 'Pressure');
+    if (irrigatorType !== 'kline' && values.testRunMinutes.trim() !== '') num('testRunMinutes', 1, 1440, 'Test run time');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleNext = () => {
     if (!validate()) return;
+    const klineMins = values.klineTestMinutes.trim() ? Number(values.klineTestMinutes) : undefined;
     setSystemParams({
       diameter: Number(values.diameter),
       targetDepth: Number(values.targetDepth),
@@ -114,7 +140,7 @@ export default function SetupScreen() {
       machineWidth: Number(values.machineWidth),
       podSpacing: Number(values.podSpacing),
       podsPerLateral: Number(values.podsPerLateral),
-      klineTestMinutes: values.klineTestMinutes.trim() ? Number(values.klineTestMinutes) : undefined,
+      klineTestMinutes: klineMins,
       klineSetHours: values.klineSetHours.trim() ? Number(values.klineSetHours) : undefined,
       gunRadius: Number(values.gunRadius),
       laneSpacing: Number(values.laneSpacing),
@@ -123,10 +149,18 @@ export default function SetupScreen() {
       boomWidth: Number(values.boomWidth),
       nozzleSpacing: Number(values.nozzleSpacing),
       operatingPressure: optNum(values.operatingPressure),
+      pressureUnit: values.pressureUnit === 'psi' ? 'psi' : 'kPa',
+      testRunMinutes: irrigatorType === 'kline' ? klineMins : optNum(values.testRunMinutes),
       revolutionTime: optNum(values.revolutionTime),
       numSprinklers: optNum(values.numSprinklers),
       flowRate: optNum(values.flowRate),
     });
+    setOperationData({
+      farmName: values.farmName.trim(),
+      irrigatorName: values.irrigatorName.trim(),
+      assessorName: values.assessorName.trim(),
+    });
+    if (values.testDate) setTestConditions(values.testDate, windSpeed);
     generatePlan();
     router.push('/plan');
   };
@@ -160,7 +194,46 @@ export default function SetupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Card */}
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border }]}>
+              Test Information
+            </Text>
+            <View style={styles.fieldGroup}>
+              <FormField
+                label="Farm Name"
+                hint="Optional"
+                value={values.farmName}
+                onChangeText={v => set('farmName', v)}
+                placeholder="e.g. Wiper Farm Road"
+                {...reg('farmName')}
+              />
+              <FormField
+                label={irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}
+                hint="Optional"
+                value={values.irrigatorName}
+                onChangeText={v => set('irrigatorName', v)}
+                placeholder="e.g. Pivot 2 North"
+                {...reg('irrigatorName')}
+              />
+              <FormField
+                label="Assessor Name"
+                hint="Optional"
+                value={values.assessorName}
+                onChangeText={v => set('assessorName', v)}
+                placeholder="e.g. John Smith"
+                {...reg('assessorName')}
+              />
+              <FormField
+                label="Test Date"
+                hint="Optional — YYYY-MM-DD"
+                value={values.testDate}
+                onChangeText={v => set('testDate', v)}
+                placeholder="YYYY-MM-DD"
+                {...reg('testDate')}
+              />
+            </View>
+          </View>
+
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border }]}>
               Bucket Settings
@@ -243,7 +316,6 @@ export default function SetupScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.mutedForeground, borderBottomColor: colors.border, marginTop: 12, fontSize: 13 }]}>
                     Optional — for report detail
                   </Text>
-                  <FormField label="Operating Pressure (bar)" keyboardType="decimal-pad" value={values.operatingPressure} onChangeText={v => set('operatingPressure', v)} placeholder="e.g. 4.0" {...reg('operatingPressure')} />
                   <FormField label="Full Revolution Time (hours)" keyboardType="decimal-pad" value={values.revolutionTime} onChangeText={v => set('revolutionTime', v)} placeholder="e.g. 48" {...reg('revolutionTime')} />
                   <FormField label="Total Number of Sprinklers" keyboardType="numeric" value={values.numSprinklers} onChangeText={v => set('numSprinklers', v)} placeholder="e.g. 120" {...reg('numSprinklers')} />
                   <FormField label="System Flow Rate (L/s)" keyboardType="decimal-pad" value={values.flowRate} onChangeText={v => set('flowRate', v)} placeholder="e.g. 42" {...reg('flowRate')} />
@@ -256,7 +328,7 @@ export default function SetupScreen() {
                 <>
                   <FormField label="Pod Spacing (m)" keyboardType="numeric" value={values.podSpacing} onChangeText={v => set('podSpacing', v)} error={errors.podSpacing} required {...reg('podSpacing')} />
                   <FormField label="Pods Per Lateral" keyboardType="numeric" value={values.podsPerLateral} onChangeText={v => set('podsPerLateral', v)} error={errors.podsPerLateral} required {...reg('podsPerLateral')} />
-                  <FormField label="Test Run Time (minutes)" hint="How long pods ran while buckets collected — required for application depth" keyboardType="numeric" value={values.klineTestMinutes} onChangeText={v => set('klineTestMinutes', v)} error={errors.klineTestMinutes} placeholder="e.g. 60" {...reg('klineTestMinutes')} />
+                  <FormField label="Test Run Time (minutes)" hint="How long the pods ran while water collected in the buckets. Needed to calculate application depth; leave blank if you only need DU." keyboardType="numeric" value={values.klineTestMinutes} onChangeText={v => set('klineTestMinutes', v)} error={errors.klineTestMinutes} placeholder="e.g. 60" {...reg('klineTestMinutes')} />
                   <FormField label="Set Run Time (hours)" hint="How long the K-Line runs per position (commonly 12–24 hrs)" keyboardType="numeric" value={values.klineSetHours} onChangeText={v => set('klineSetHours', v)} error={errors.klineSetHours} placeholder="e.g. 24" {...reg('klineSetHours')} />
                 </>
               )}
@@ -275,6 +347,63 @@ export default function SetupScreen() {
                   <FormField label="Boom Width (m)" keyboardType="numeric" value={values.boomWidth} onChangeText={v => set('boomWidth', v)} error={errors.boomWidth} required {...reg('boomWidth')} />
                   <FormField label="Nozzle Spacing (m)" keyboardType="decimal-pad" value={values.nozzleSpacing} onChangeText={v => set('nozzleSpacing', v)} error={errors.nozzleSpacing} required {...reg('nozzleSpacing')} />
                 </>
+              )}
+            </View>
+
+            <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border, marginTop: 24 }]}>
+              Test Conditions
+            </Text>
+            <View style={styles.fieldGroup}>
+              <FormField
+                label="Water Input Pressure"
+                hint="Water pressure measured at the irrigator. Enter in kPa or psi."
+                keyboardType="decimal-pad"
+                value={values.operatingPressure}
+                onChangeText={v => set('operatingPressure', v)}
+                error={errors.operatingPressure}
+                placeholder="e.g. 400"
+                {...reg('operatingPressure')}
+              />
+              <View style={styles.toggleRow}>
+                <Text style={[styles.toggleLabel, { color: colors.foreground }]}>Pressure unit</Text>
+                <View style={styles.toggleGroup}>
+                  {(['kPa', 'psi'] as const).map(opt => (
+                    <View
+                      key={opt}
+                      style={[
+                        styles.toggleOption,
+                        {
+                          backgroundColor: values.pressureUnit === opt ? colors.primary : colors.muted,
+                          borderColor: values.pressureUnit === opt ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        onPress={() => set('pressureUnit', opt)}
+                        style={[
+                          styles.toggleText,
+                          { color: values.pressureUnit === opt ? colors.primaryForeground : colors.foreground },
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              {irrigatorType !== 'kline' && (
+                <FormField
+                  label="Test Run Time (minutes)"
+                  hint={['pivot', 'lateral', 'gun', 'boom'].includes(irrigatorType)
+                    ? 'How long one full pass over the bucket line took. Used to calculate application intensity (mm/hr).'
+                    : 'How long the system ran while water collected in the buckets (min ~60 min). Used to calculate application intensity (mm/hr).'}
+                  keyboardType="numeric"
+                  value={values.testRunMinutes}
+                  onChangeText={v => set('testRunMinutes', v)}
+                  error={errors.testRunMinutes}
+                  placeholder="e.g. 60"
+                  {...reg('testRunMinutes')}
+                />
               )}
             </View>
           </View>

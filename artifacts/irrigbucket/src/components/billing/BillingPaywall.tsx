@@ -19,7 +19,7 @@ export function BillingPaywall({
   description = "Subscribe annually to view test results and saved reports.",
 }: BillingPaywallProps) {
   const [, setLocation] = useLocation();
-  const { isLoading, hasAccess, isAuthenticated, login, priceDisplay } = useBilling();
+  const { isLoading, hasAccess, billingUnreachable, isAuthenticated, login, priceDisplay } = useBilling();
 
   if (isLoading) {
     return (
@@ -29,7 +29,7 @@ export function BillingPaywall({
     );
   }
 
-  if (hasAccess) return <>{children}</>;
+  if (hasAccess || billingUnreachable) return <>{children}</>;
 
   return (
     <Card className="max-w-lg mx-auto">

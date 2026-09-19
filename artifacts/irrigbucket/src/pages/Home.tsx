@@ -84,7 +84,7 @@ export default function Home() {
     <div className="min-h-screen bg-background relative overflow-x-hidden">
 
       {/* ── Fixed Header ──────────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-border/50 shadow-sm">
+      <header className="fixed top-[var(--offline-banner-h,0px)] left-0 right-0 z-50 w-full bg-white border-b border-border/50 shadow-sm">
         <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo — left */}
@@ -110,7 +110,7 @@ export default function Home() {
 
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
       {/* Hero Section */}
-      <div className="relative pt-16 pb-16 sm:pt-24 sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
+      <div className="relative pt-[calc(4rem+var(--offline-banner-h,0px))] pb-16 sm:pt-[calc(6rem+var(--offline-banner-h,0px))] sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -145,11 +145,21 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
               >
-                <Card 
-                  className={`cursor-pointer transition-all duration-300 h-full flex flex-col hover-elevate ${
+                <Card
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`${type.name}. ${type.desc}`}
+                  className={`cursor-pointer transition-all duration-300 h-full flex flex-col hover-elevate text-left ${
                     isSelected ? 'ring-4 ring-primary border-primary' : 'hover:border-primary/50'
                   }`}
                   onClick={() => handleSelect(type.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelect(type.id);
+                    }
+                  }}
                 >
                   <div className="p-6 md:p-8 flex-1 flex flex-col items-center text-center">
                     <div className={`p-4 rounded-2xl mb-6 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>

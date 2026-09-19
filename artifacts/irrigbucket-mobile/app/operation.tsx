@@ -69,7 +69,7 @@ export default function OperationScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border }]}>Pivot Settings</Text>
               <View style={styles.fields}>
                 <FormField label="% Timer Setting" value={operationData.percentTimer || ''} onChangeText={set('percentTimer')} keyboardType="numeric" placeholder="e.g. 75" {...reg('percentTimer')} />
-                <FormField label="Inlet Pressure (bar)" value={operationData.inletPressure || ''} onChangeText={set('inletPressure')} keyboardType="decimal-pad" placeholder="e.g. 4.2" {...reg('inletPressure')} />
+                <FormField label="Inlet Pressure (kPa)" value={operationData.inletPressure || ''} onChangeText={set('inletPressure')} keyboardType="decimal-pad" placeholder="e.g. 399" {...reg('inletPressure')} />
                 <FormField label="Wetted Width (m)" value={operationData.wettedWidth || ''} onChangeText={set('wettedWidth')} keyboardType="numeric" placeholder="e.g. 25" {...reg('wettedWidth')} />
                 <FormField label="Corner Arm" value={operationData.cornerArm || ''} onChangeText={set('cornerArm')} placeholder="Yes / No" {...reg('cornerArm')} />
               </View>
@@ -81,7 +81,7 @@ export default function OperationScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border }]}>Machine Settings</Text>
               <View style={styles.fields}>
                 <FormField label="Actual Speed (m/h)" value={operationData.actualSpeed || ''} onChangeText={set('actualSpeed')} keyboardType="decimal-pad" placeholder="e.g. 12.5" {...reg('actualSpeed')} />
-                <FormField label="Inlet Pressure (bar)" value={operationData.inletPressure || ''} onChangeText={set('inletPressure')} keyboardType="decimal-pad" placeholder="e.g. 3.5" {...reg('inletPressure')} />
+                <FormField label="Inlet Pressure (kPa)" value={operationData.inletPressure || ''} onChangeText={set('inletPressure')} keyboardType="decimal-pad" placeholder="e.g. 350" {...reg('inletPressure')} />
                 <FormField label="Speed Test Time (sec)" value={operationData.speedTestTime || ''} onChangeText={set('speedTestTime')} keyboardType="numeric" {...reg('speedTestTime')} />
                 <FormField label="Speed Test Distance (m)" value={operationData.speedTestDistance || ''} onChangeText={set('speedTestDistance')} keyboardType="numeric" {...reg('speedTestDistance')} />
               </View>

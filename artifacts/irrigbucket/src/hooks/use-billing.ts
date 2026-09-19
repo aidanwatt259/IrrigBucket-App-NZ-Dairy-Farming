@@ -17,6 +17,26 @@ export interface BillingStatus {
   price: BillingPrice;
 }
 
+const BILLING_CACHE_KEY = "irrigbucket-billing-status";
+
+function readBillingCache(): BillingStatus | null {
+  try {
+    const raw = sessionStorage.getItem(BILLING_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as BillingStatus;
+  } catch {
+    return null;
+  }
+}
+
+function writeBillingCache(data: BillingStatus) {
+  try {
+    sessionStorage.setItem(BILLING_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // storage unavailable
+  }
+}
+
 export function useBilling() {
   const { isAuthenticated, isLoading: authLoading, login, user } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null>(null);
@@ -30,10 +50,11 @@ export function useBilling() {
       const res = await fetch("/api/billing/status", { credentials: "include" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as BillingStatus;
+      writeBillingCache(data);
       setStatus(data);
     } catch {
       setError("Could not load billing status");
-      setStatus(null);
+      setStatus(readBillingCache());
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +118,9 @@ export function useBilling() {
     confirmCheckout,
     openPortal,
     hasAccess: Boolean(status?.hasAccess),
+    // True when billing cannot be reached and we have no cached answer.
+    // Results/reports fail-open so a farmer can still read a test on this device.
+    billingUnreachable: Boolean(error) && !status,
     priceDisplay: status?.price.display ?? "NZ$149 / year",
   };
 }

@@ -64,7 +64,7 @@ export default function SavedReport() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background/90 backdrop-blur-sm">
-      <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-border/50 shadow-sm no-print">
+      <header className="sticky top-[var(--offline-banner-h,0px)] z-50 w-full bg-white border-b border-border/50 shadow-sm no-print">
         <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">

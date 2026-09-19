@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
 import { useColors } from '@/hooks/useColors';
-import { calculateTestResults, calcKlineApplication } from '@/lib/calculations';
+import { calculateTestResults, calcKlineApplication, getEffectiveTestRunMinutes, formatPressure } from '@/lib/calculations';
 
 export default function ResultsScreen() {
   const colors = useColors();
@@ -30,10 +30,16 @@ export default function ResultsScreen() {
 
   const klineApp = useMemo(
     () => irrigatorType === 'kline' && results
-      ? calcKlineApplication(results.avgDepth, systemParams.targetDepth, systemParams.klineTestMinutes, systemParams.klineSetHours)
+      ? calcKlineApplication(
+          results.avgDepth,
+          systemParams.targetDepth,
+          getEffectiveTestRunMinutes('kline', systemParams),
+          systemParams.klineSetHours,
+        )
       : null,
     [irrigatorType, results, systemParams]
   );
+  const pressureDisplay = formatPressure(systemParams);
 
   useEffect(() => {
     if (results && !savedRef.current) {
@@ -125,7 +131,7 @@ export default function ResultsScreen() {
         )}
 
         {/* Operation details */}
-        {(operationData.farmName || operationData.assessorName) && (
+        {(operationData.farmName || operationData.assessorName || operationData.irrigatorName || pressureDisplay) && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Test Details</Text>
             {operationData.farmName && (
@@ -144,6 +150,12 @@ export default function ResultsScreen() {
               <View style={styles.detailRow}>
                 <Feather name="droplet" size={14} color={colors.mutedForeground} />
                 <Text style={[styles.detailText, { color: colors.foreground }]}>{operationData.irrigatorName}</Text>
+              </View>
+            )}
+            {pressureDisplay && (
+              <View style={styles.detailRow}>
+                <Feather name="activity" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.detailText, { color: colors.foreground }]}>{pressureDisplay}</Text>
               </View>
             )}
           </View>

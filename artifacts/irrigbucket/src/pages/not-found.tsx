@@ -1,19 +1,30 @@
+import { Droplet } from "lucide-react";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function NotFound() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
+  const [, setLocation] = useLocation();
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+  return (
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background px-4">
+      <div className="flex items-center gap-2 mb-8">
+        <div className="bg-primary/10 p-2 rounded-xl text-primary">
+          <Droplet className="w-5 h-5 fill-primary" />
+        </div>
+        <span className="font-display font-bold text-xl tracking-tight">
+          Irrig<span className="text-primary">Bucket</span>
+        </span>
+      </div>
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-8 pb-8 text-center space-y-4">
+          <h1 className="text-2xl font-display font-bold text-foreground">Page not found</h1>
+          <p className="text-muted-foreground">
+            That link doesn&apos;t match a page in IrrigBucket. Head back home to start a bucket test.
           </p>
+          <Button size="lg" className="w-full" onClick={() => setLocation("/")}>
+            Back to home
+          </Button>
         </CardContent>
       </Card>
     </div>

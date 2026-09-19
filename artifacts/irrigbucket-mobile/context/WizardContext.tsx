@@ -57,7 +57,8 @@ interface WizardContextValue extends WizardState {
 
 const defaultParams: SystemParams = {
   diameter: 250,
-  targetDepth: 20,
+  targetDepth: 15,
+  pressureUnit: 'kPa',
   armLength: 400,
   spans: 8,
   hasEndGun: 'No',
