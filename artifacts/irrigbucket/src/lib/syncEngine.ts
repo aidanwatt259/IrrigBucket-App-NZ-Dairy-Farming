@@ -4,6 +4,14 @@ import { db, savedReportToSyncReport } from './syncDb';
 import { dexieAdapter } from './dexieAdapter';
 import { transport } from './transport';
 import type { SavedReport } from './savedReports';
+import {
+  GUEST_ACCOUNT,
+  clearAccountSessionState,
+  getCurrentAccount,
+  resolveAccount,
+  setAccountSetup,
+  type AccountResolution,
+} from './account';
 
 /**
  * The singleton {@link SyncEngine} wiring the Dexie {@link dexieAdapter} to the
@@ -73,6 +81,42 @@ async function runMigration(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Account scoping — see ./account.ts.
+// ---------------------------------------------------------------------------
+
+async function applyAccount({ current, previous }: AccountResolution): Promise<void> {
+  if (previous !== GUEST_ACCOUNT && previous !== current) {
+    clearAccountSessionState();
+  }
+  if (current === GUEST_ACCOUNT) return;
+
+  // Reports made while logged out join the account that signs in next.
+  const owners = new Map(
+    (await db.report_owners.toArray()).map((o) => [o.reportId, o.ownerId]),
+  );
+  const guestReports = (await db.reports.toArray()).filter(
+    (r) => (owners.get(r.id) ?? r.userId ?? GUEST_ACCOUNT) === GUEST_ACCOUNT,
+  );
+  for (const report of guestReports) {
+    await db.report_owners.put({ reportId: report.id, ownerId: current });
+    owners.set(report.id, current);
+    if (report.deletedAt === null && report.syncedAt !== null) {
+      // The server holds an anonymous copy; a newer save lets this account claim it.
+      await syncEngine.enqueueUpsert({ ...report, clientUpdatedAt: new Date().toISOString() });
+    }
+  }
+
+  // Retry this account's queued saves now rather than waiting out the backoff
+  // they built up while another account was signed in.
+  const nowIso = new Date().toISOString();
+  for (const item of await db.sync_queue.toArray()) {
+    if (owners.get(item.reportId) === current && item.nextAttemptAt > nowIso) {
+      await db.sync_queue.update(item.enqueueId, { nextAttemptAt: nowIso });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Connectivity wiring + startup.
 // ---------------------------------------------------------------------------
 
@@ -90,6 +134,8 @@ let pullInFlight = false;
 
 async function pullWithRetry(): Promise<void> {
   if (pullInFlight) return;
+  // Guests have no server copy to pull.
+  if ((await getCurrentAccount()) === GUEST_ACCOUNT) return;
   pullInFlight = true;
   try {
     for (let attempt = 1; attempt <= PULL_MAX_ATTEMPTS; attempt++) {
@@ -139,11 +185,18 @@ export function initSyncEngine(): void {
     window.addEventListener('offline', handleOffline);
   }
 
+  const setup = (async () => {
+    const account = await resolveAccount();
+    await runMigration();
+    await applyAccount(account);
+  })();
+  setAccountSetup(setup);
+
   void (async () => {
     syncEngine.setOnline(
       typeof navigator !== 'undefined' ? navigator.onLine : true,
     );
-    await runMigration();
+    await setup.catch(() => {});
     if (typeof navigator === 'undefined' || navigator.onLine) {
       await pullWithRetry();
     }
