@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Beta billing scope](beta-billing-scope.md) — do not publish subscription prompts for beta testers; Apple sign-in remains hidden until configured.
+
 - [Schema ownership & startup DDL](schema-ownership.md) — no DDL at boot, only a SELECT 1 readiness probe; schema flows via drizzle push (dev) + publish diff (prod); prod replica can be frozen, blocking direct verification.
 
 - [IrrigBucket architecture](irrigbucket-architecture.md) — JSON-blob persistence (no DB migration for new SystemParams fields); derived metrics live in the report layer; mobile setup wiring has 4 touch-points.

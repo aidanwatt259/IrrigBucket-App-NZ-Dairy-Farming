@@ -28,6 +28,9 @@ export default function Subscribe() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const autoCheckoutAttempted = useRef(false);
+  const subscriptionActive = isAuthenticated &&
+    (status?.status === "active" || status?.status === "trialing");
+  const adminAccess = isAuthenticated && status?.status === "admin";
 
   useEffect(() => {
     if (checkout !== "success" || !sessionId || !isAuthenticated || hasAccess) return;
@@ -47,6 +50,8 @@ export default function Subscribe() {
       !start ||
       isLoading ||
       !isAuthenticated ||
+      !status?.configured ||
+      error ||
       hasAccess ||
       busy ||
       autoCheckoutAttempted.current
@@ -60,7 +65,7 @@ export default function Subscribe() {
         setActionError(err.message);
         setBusy(false);
       });
-  }, [start, isLoading, isAuthenticated, hasAccess, busy, startCheckout, returnTo]);
+  }, [start, isLoading, isAuthenticated, hasAccess, status?.configured, error, busy, startCheckout, returnTo]);
 
   async function handleSubscribe() {
     setActionError(null);
@@ -162,7 +167,7 @@ export default function Subscribe() {
               )}
               {status && !status.configured && (
                 <p className="text-xs text-muted-foreground text-center">
-                  Add <code className="font-mono bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> in Replit Secrets to take live payments.
+                  Subscription checkout is not available yet. No payment is required at this time.
                 </p>
               )}
 
@@ -174,12 +179,18 @@ export default function Subscribe() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2 text-sm text-primary font-semibold">
                     <ShieldCheck className="w-4 h-4" />
-                    Your subscription is active
+                    {adminAccess
+                      ? "Administrator access — no subscription required"
+                      : subscriptionActive
+                        ? status?.status === "trialing"
+                          ? "Your subscription trial is active"
+                          : "Your subscription is active"
+                        : "Free access — no subscription required"}
                   </div>
                   <Button className="w-full" onClick={() => setLocation(returnTo.startsWith("/") ? returnTo : "/")}>
                     Continue
                   </Button>
-                  {status?.status !== "admin" && (
+                  {subscriptionActive && status?.configured && !adminAccess && !error && (
                     <Button variant="outline" className="w-full" disabled={busy} onClick={() => void handlePortal()}>
                       <CreditCard className="w-4 h-4 mr-2" />
                       Manage billing
@@ -187,9 +198,9 @@ export default function Subscribe() {
                   )}
                 </div>
               ) : (
-                <Button size="lg" className="w-full" disabled={busy} onClick={() => void handleSubscribe()}>
+                <Button size="lg" className="w-full" disabled={busy || !status?.configured || Boolean(error)} onClick={() => void handleSubscribe()}>
                   {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  {isAuthenticated ? "Subscribe with Stripe" : "Log in to subscribe"}
+                  {!status ? "Billing status unavailable" : !status.configured ? "Checkout unavailable" : isAuthenticated ? "Subscribe with Stripe" : "Log in to subscribe"}
                 </Button>
               )}
             </CardContent>

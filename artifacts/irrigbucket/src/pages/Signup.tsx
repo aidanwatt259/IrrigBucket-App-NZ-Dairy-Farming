@@ -15,14 +15,6 @@ function GoogleIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
-      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.42c1.39.07 2.36.74 3.17.8 1.21-.24 2.38-.93 3.6-.84 1.54.12 2.69.71 3.47 1.78-3.19 1.9-2.39 6.08.39 7.28-.57 1.36-1.31 2.71-2.63 3.84zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-    </svg>
-  );
-}
-
 export default function Signup() {
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState('');
@@ -30,11 +22,11 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
+  const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  async function handleOAuth(provider: 'google' | 'apple') {
+  async function handleOAuth(provider: 'google') {
     setOauthLoading(provider);
     setError(null);
     try {
@@ -158,15 +150,6 @@ export default function Signup() {
             >
               <GoogleIcon />
               {oauthLoading === 'google' ? 'Connecting…' : 'Continue with Google'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOAuth('apple')}
-              disabled={oauthLoading !== null || isLoading}
-              className="w-full flex items-center justify-center gap-2.5 border border-border rounded-xl px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <AppleIcon />
-              {oauthLoading === 'apple' ? 'Connecting…' : 'Continue with Apple'}
             </button>
           </div>
 

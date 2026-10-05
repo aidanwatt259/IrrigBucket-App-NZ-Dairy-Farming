@@ -10,7 +10,6 @@ import {
   saveReport as saveLocalReport,
 } from '@/lib/savedReports';
 import { useAuth } from '@workspace/replit-auth-web';
-import { useBilling } from '@/hooks/use-billing';
 
 interface ServerReport {
   id: string;
@@ -49,7 +48,6 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
-  const { hasAccess, isLoading: billingLoading } = useBilling();
 
   useEffect(() => {
     if (open) {
@@ -506,15 +504,14 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
               Log in
             </Button>
           )}
-          {isAuthenticated && !billingLoading && (
-            <button
-              onClick={() => { onClose(); setLocation(hasAccess ? '/subscribe' : '/subscribe?start=1'); }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              {hasAccess ? 'Manage subscription' : 'Subscribe'}
-            </button>
-          )}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { onClose(); setLocation('/subscribe'); }}
+          >
+            <CreditCard className="w-4 h-4 mr-2" />
+            Subscription
+          </Button>
           {user?.isAdmin && (
             <button
               onClick={() => { onClose(); setLocation('/admin'); }}
