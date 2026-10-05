@@ -209,6 +209,15 @@ export interface SyncStatus {
   pending: number;
   /** Most recent delivery error message, or `null`. */
   lastError: string | null;
+  /**
+   * Client-set hint: the server answered "still starting up" (e.g. a 503
+   * `DB_NOT_READY` while its database wakes) and the client is quietly
+   * retrying. The engine itself never sets this; platform wrappers stamp it
+   * onto the statuses they fan out so the UI can show a friendly "cloud sync
+   * is starting up" message instead of a generic error. Cleared automatically
+   * once a pull or push succeeds.
+   */
+  serverWaking?: boolean;
 }
 
 /** Exponential-backoff parameters for failed deliveries. */

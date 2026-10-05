@@ -1,5 +1,8 @@
 import { SyncEngine, type SyncStatus } from '@workspace/sync';
-import { isTransientApiError } from '@workspace/api-client-react';
+import {
+  isTransientApiError,
+  isServerWakingError,
+} from '@workspace/api-client-react';
 import { db, savedReportToSyncReport } from './syncDb';
 import { dexieAdapter } from './dexieAdapter';
 import { transport } from './transport';
@@ -15,8 +18,12 @@ export const syncEngine = new SyncEngine<SavedReport>({
   transport,
   genId: () => crypto.randomUUID(),
   onStatus: (status) => {
-    lastStatus = status;
-    for (const listener of listeners) listener(status);
+    // A successful round-trip (clean status with no error) means the server is
+    // awake again; clear the "starting up" hint automatically.
+    if (status.lastError === null && status.state !== 'error') {
+      serverWaking = false;
+    }
+    publishStatus(status);
   },
 });
 
@@ -28,6 +35,25 @@ type StatusListener = (status: SyncStatus) => void;
 
 const listeners = new Set<StatusListener>();
 let lastStatus: SyncStatus = { state: 'idle', pending: 0, lastError: null };
+
+/**
+ * True while the server keeps answering "still starting up" (503 DB_NOT_READY)
+ * and we are quietly retrying. Stamped onto every status fanned out so the UI
+ * can show a friendly hint instead of a generic error; cleared once a pull or
+ * push succeeds.
+ */
+let serverWaking = false;
+
+function publishStatus(status: SyncStatus): void {
+  lastStatus = { ...status, serverWaking };
+  for (const listener of listeners) listener(lastStatus);
+}
+
+function setServerWaking(waking: boolean): void {
+  if (serverWaking === waking) return;
+  serverWaking = waking;
+  publishStatus(lastStatus);
+}
 
 export function getSyncStatus(): SyncStatus {
   return lastStatus;
@@ -95,10 +121,16 @@ async function pullWithRetry(): Promise<void> {
     for (let attempt = 1; attempt <= PULL_MAX_ATTEMPTS; attempt++) {
       try {
         await syncEngine.reconcilePull();
+        setServerWaking(false);
         // A successful pull may unblock queued pushes too.
         void syncEngine.drain().catch(() => {});
         return;
       } catch (err) {
+        if (isServerWakingError(err)) {
+          // The server said "still starting up" — surface a friendly hint
+          // while we keep retrying in the background.
+          setServerWaking(true);
+        }
         const retryable =
           isTransientApiError(err) && attempt < PULL_MAX_ATTEMPTS;
         if (!retryable) return; // Non-transient or exhausted: next online edge retries.

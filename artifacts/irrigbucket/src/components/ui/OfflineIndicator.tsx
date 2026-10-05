@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { WifiOff, Wifi, CloudOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { subscribeSyncStatus } from '@/lib/syncEngine';
+import { WifiOff, Wifi, CloudOff, RefreshCw } from 'lucide-react';
 
 const BANNER_VAR = '--offline-banner-h';
 
@@ -13,16 +13,19 @@ export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOnlineBanner, setShowOnlineBanner] = useState(false);
   const [syncErrored, setSyncErrored] = useState(false);
+  const [serverWaking, setServerWaking] = useState(false);
   const bannerRef = useRef<HTMLDivElement>(null);
 
   const showOffline = !isOnline;
-  const showSyncError = isOnline && syncErrored;
-  const showBackOnline = isOnline && showOnlineBanner && !syncErrored;
-  const visible = showOffline || showSyncError || showBackOnline;
+  const showServerWaking = isOnline && serverWaking;
+  const showSyncError = isOnline && !serverWaking && syncErrored;
+  const showBackOnline = isOnline && showOnlineBanner && !syncErrored && !serverWaking;
+  const visible = showOffline || showServerWaking || showSyncError || showBackOnline;
 
   useEffect(() => {
     return subscribeSyncStatus((status) => {
       setSyncErrored(status.state === 'error' && status.pending > 0);
+      setServerWaking(status.serverWaking === true);
     });
   }, []);
 
@@ -59,7 +62,7 @@ export function OfflineIndicator() {
       ro.disconnect();
       setBannerOffset(0);
     };
-  }, [visible, showOffline, showSyncError, showBackOnline]);
+  }, [visible, showOffline, showServerWaking, showSyncError, showBackOnline]);
 
   let icon = <CloudOff className="w-4 h-4 flex-shrink-0" />;
   let message = 'Sync unavailable — data saved locally. We\'ll retry automatically.';
@@ -67,6 +70,10 @@ export function OfflineIndicator() {
   if (showOffline) {
     icon = <WifiOff className="w-4 h-4 flex-shrink-0" />;
     message = 'No internet — your data is saved on this device';
+  } else if (showServerWaking) {
+    icon = <RefreshCw className="w-4 h-4 flex-shrink-0 animate-spin" />;
+    message = 'Cloud sync is starting up — retrying automatically…';
+    tone = 'bg-primary text-white';
   } else if (showBackOnline) {
     icon = <Wifi className="w-4 h-4 flex-shrink-0" />;
     message = 'Back online';

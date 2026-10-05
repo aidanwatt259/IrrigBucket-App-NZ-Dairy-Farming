@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as Crypto from 'expo-crypto';
 
-import { isTransientApiError } from '@workspace/api-client-react';
+import {
+  isTransientApiError,
+  isServerWakingError,
+} from '@workspace/api-client-react';
 import { SyncEngine } from '@workspace/sync';
 import type { SyncReport, SyncStatus } from '@workspace/sync';
 
@@ -67,9 +70,28 @@ function mapSavedToSync(saved: SavedReport): SyncReport<SavedReport> {
   };
 }
 
+/**
+ * True while the server keeps answering "still starting up" (503 DB_NOT_READY)
+ * and we are quietly retrying. Stamped onto every status fanned out so the UI
+ * can show a friendly hint instead of a generic error; cleared once a pull or
+ * push succeeds.
+ */
+let serverWaking = false;
+
+function setServerWaking(waking: boolean): void {
+  if (serverWaking === waking) return;
+  serverWaking = waking;
+  emit(currentStatus);
+}
+
 function emit(status: SyncStatus): void {
-  currentStatus = status;
-  statusListeners.forEach((listener) => listener(status));
+  // A successful round-trip (clean status with no error) means the server is
+  // awake again; clear the "starting up" hint automatically.
+  if (status.lastError === null && status.state !== 'error') {
+    serverWaking = false;
+  }
+  currentStatus = { ...status, serverWaking };
+  statusListeners.forEach((listener) => listener(currentStatus));
   // A status change frequently coincides with the local report set changing
   // (a push completed, a pull adopted rows); nudge subscribers to re-read.
   notifyReportsChanged();
@@ -117,9 +139,15 @@ async function pullIfPossible(): Promise<void> {
       if (!engine || !authed || !lastConnected) return;
       try {
         await engine.reconcilePull();
+        setServerWaking(false);
         notifyReportsChanged();
         return;
       } catch (err) {
+        if (isServerWakingError(err)) {
+          // The server said "still starting up" — surface a friendly hint
+          // while we keep retrying in the background.
+          setServerWaking(true);
+        }
         const retryable =
           isTransientApiError(err) && attempt < PULL_MAX_ATTEMPTS;
         // Non-transient or exhausted: the next online edge retries.

@@ -36,6 +36,9 @@ function syncSummary(status: SyncStatus): { icon: keyof typeof Feather.glyphMap;
           : 'Offline — changes sync when reconnected',
     };
   }
+  if (status.serverWaking) {
+    return { icon: 'refresh-cw', text: 'Cloud sync is starting up — retrying…' };
+  }
   if (status.state === 'error') {
     return { icon: 'alert-triangle', text: 'Sync error — will retry automatically' };
   }

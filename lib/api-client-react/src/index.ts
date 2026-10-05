@@ -7,6 +7,7 @@ export {
   ApiError,
   ResponseParseError,
   isTransientApiError,
+  isServerWakingError,
 } from "./custom-fetch";
 export type {
   AuthTokenGetter,

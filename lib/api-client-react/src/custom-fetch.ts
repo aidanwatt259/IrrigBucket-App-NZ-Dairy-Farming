@@ -211,6 +211,16 @@ export function isTransientApiError(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
+/**
+ * True when an error is a 503 from the server — the API's "still starting up"
+ * signal (`DB_NOT_READY` while the database wakes, or `SYNC_UNAVAILABLE` while
+ * sync is paused). A subset of {@link isTransientApiError}; lets clients show a
+ * friendly "server is starting up" hint instead of a generic sync error.
+ */
+export function isServerWakingError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 503;
+}
+
 export class ResponseParseError extends Error {
   readonly name = "ResponseParseError";
   readonly status: number;
