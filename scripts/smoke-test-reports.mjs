@@ -41,7 +41,11 @@ async function waitForServer(timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const r = await fetch(`${BASE}/healthz`);
+      // Liveness opens before the database readiness gate. Wait for the deep
+      // health check so these CRUD assertions do not race a waking database.
+      const r = await fetch(`${BASE}/health`, {
+        signal: AbortSignal.timeout(6000),
+      });
       if (r.ok) return;
     } catch {
       /* not up yet */

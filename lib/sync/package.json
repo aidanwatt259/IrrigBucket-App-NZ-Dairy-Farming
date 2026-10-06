@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --experimental-vm-modules --import tsx --test \"src/**/*.test.ts\" \"tests/**/*.test.ts\""
   },
   "devDependencies": {
     "tsx": "catalog:"
