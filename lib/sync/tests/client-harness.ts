@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { createContext, SourceTextModule, SyntheticModule } from "node:vm";
 import * as apiErrors from "../../api-client-react/src/custom-fetch.ts";
+import type { SyncStatus, Transport } from "../src/types.ts";
 
 // Execute the complete production wiring module in a fresh realm per test.
 // Only platform/storage dependencies and the underlying engine are replaced;
@@ -12,6 +13,9 @@ export async function clientHarness(platform: "web" | "mobile") {
   let calls = 0;
   let drains = 0;
   let result: () => Promise<void> = async () => {};
+  let writeResult: () => Promise<void> = async () => {};
+  let onStatus: (status: SyncStatus) => void = () => {};
+  let transport: Transport;
   const timers: { at: number; run: () => void }[] = [];
   const events = new Map<string, () => void>();
   let netListener: (state: { isConnected: boolean }) => void = () => {};
@@ -22,11 +26,23 @@ export async function clientHarness(platform: "web" | "mobile") {
     setOnline: () => {},
   };
   const imports: Record<string, Record<string, unknown>> = {
-    "@workspace/sync": { SyncEngine: class { constructor() { return engine; } } },
+    "@workspace/sync": { SyncEngine: class {
+      constructor(options: { onStatus: typeof onStatus; transport: Transport }) {
+        onStatus = options.onStatus;
+        transport = options.transport;
+        return engine;
+      }
+    } },
     "@workspace/api-client-react": apiErrors,
     "./syncDb": { db: {}, savedReportToSyncReport: () => {} },
     "./dexieAdapter": { dexieAdapter: {} },
-    "./transport": { transport: {}, createTransport: () => ({}) },
+    "./transport": {
+      transport: {},
+      createTransport: () => ({
+        pushReport: async () => { await writeResult(); return null; },
+        deleteReport: async () => { await writeResult(); return null; },
+      }),
+    },
     "./sqliteAdapter": {
       createSqliteAdapter: async () => ({ rekeyAnonymousIds: async () => {} }),
     },
@@ -70,6 +86,8 @@ export async function clientHarness(platform: "web" | "mobile") {
     initSync(): Promise<void>;
     enableSync(): Promise<void>;
     disableSync(): Promise<void>;
+    getStatus(): SyncStatus;
+    subscribeStatus(listener: (status: SyncStatus) => void): () => void;
   };
   // A host event-loop turn drains all guest async continuations without sleeps.
   const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -78,6 +96,17 @@ export async function clientHarness(platform: "web" | "mobile") {
     get drains() { return drains; },
     get pendingTimers() { return timers.length; },
     respond(fn: typeof result) { result = fn; },
+    respondToWrite(fn: typeof writeResult) { writeResult = fn; },
+    get status() { return api.getStatus(); },
+    subscribeStatus(listener: (status: SyncStatus) => void) {
+      return api.subscribeStatus(listener);
+    },
+    emitStatus(status: SyncStatus) { onStatus(status); },
+    async write(op: "pushReport" | "deleteReport") {
+      // The transport stub ignores the record; exercise the production wrapper.
+      await transport[op]({} as Parameters<Transport["pushReport"]>[0]);
+      await settle();
+    },
     async start() {
       if (platform === "web") api.initSyncEngine();
       else { await api.initSync(); await api.enableSync(); }

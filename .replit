@@ -163,3 +163,7 @@ packages = ["eas-cli", "killall"]
 [userenv.shared]
 SUPABASE_URL = "https://szlukdnwkmnwlkfritpl.supabase.co"
 ADMIN_USER_ID = "1c887cbd-bc8a-4f0c-833f-5e5fdb20d148"
+
+[[ports]]
+localPort = 3811
+externalPort = 3000

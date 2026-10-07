@@ -85,11 +85,8 @@ function setServerWaking(waking: boolean): void {
 }
 
 function emit(status: SyncStatus): void {
-  // A successful round-trip (clean status with no error) means the server is
-  // awake again; clear the "starting up" hint automatically.
-  if (status.lastError === null && status.state !== 'error') {
-    serverWaking = false;
-  }
+  // A clean status can come from an empty outbox or a connectivity change,
+  // not a server round-trip. Only explicit successful operations clear the hint.
   currentStatus = { ...status, serverWaking };
   statusListeners.forEach((listener) => listener(currentStatus));
   // A status change frequently coincides with the local report set changing
@@ -222,7 +219,19 @@ export function initSync(): Promise<void> {
       const transport = createTransport();
       engine = new SyncEngine<SavedReport>({
         storage: adapter,
-        transport,
+        transport: {
+          ...transport,
+          async pushReport(report) {
+            const result = await transport.pushReport(report);
+            setServerWaking(false);
+            return result;
+          },
+          async deleteReport(report) {
+            const result = await transport.deleteReport(report);
+            setServerWaking(false);
+            return result;
+          },
+        },
         genId,
         onStatus: emit,
       });
@@ -288,6 +297,7 @@ export async function purgeAllLocalData(): Promise<void> {
   authed = false;
   applyOnline();
   await adapter!.purgeAll();
+  serverWaking = false;
   emit({ state: 'offline', pending: 0, lastError: null });
 }
 
