@@ -24,16 +24,21 @@ import type {
   BillingRedirect,
   BillingStatus,
   ErrorEnvelope,
+  FarmDirectoryEnvelope,
+  FarmEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   HelpRequestEnvelope,
   HelpRequestInput,
   HelpRequestListEnvelope,
+  IrrigatorEnvelope,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   ReportEnvelope,
   ReportListEnvelope,
+  SaveFarmRequest,
+  SaveIrrigatorRequest,
   SaveReportRequest,
 } from "./api.schemas";
 
@@ -893,6 +898,253 @@ export function useGetReportById<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get the farms (and their irrigators) the authenticated user can access
+ */
+export const getGetMyFarmsUrl = () => {
+  return `/api/farms`;
+};
+
+export const getMyFarms = async (
+  options?: RequestInit,
+): Promise<FarmDirectoryEnvelope> => {
+  return customFetch<FarmDirectoryEnvelope>(getGetMyFarmsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyFarmsQueryKey = () => {
+  return [`/api/farms`] as const;
+};
+
+export const getGetMyFarmsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyFarms>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyFarms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyFarmsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyFarms>>> = ({
+    signal,
+  }) => getMyFarms({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyFarms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyFarmsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyFarms>>
+>;
+export type GetMyFarmsQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get the farms (and their irrigators) the authenticated user can access
+ */
+
+export function useGetMyFarms<
+  TData = Awaited<ReturnType<typeof getMyFarms>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyFarms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyFarmsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create or update a farm (Last-Write-Wins on clientUpdatedAt)
+ */
+export const getSaveFarmUrl = () => {
+  return `/api/farms`;
+};
+
+export const saveFarm = async (
+  saveFarmRequest: SaveFarmRequest,
+  options?: RequestInit,
+): Promise<FarmEnvelope> => {
+  return customFetch<FarmEnvelope>(getSaveFarmUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveFarmRequest),
+  });
+};
+
+export const getSaveFarmMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveFarm>>,
+    TError,
+    { data: BodyType<SaveFarmRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveFarm>>,
+  TError,
+  { data: BodyType<SaveFarmRequest> },
+  TContext
+> => {
+  const mutationKey = ["saveFarm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveFarm>>,
+    { data: BodyType<SaveFarmRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveFarm(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveFarmMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveFarm>>
+>;
+export type SaveFarmMutationBody = BodyType<SaveFarmRequest>;
+export type SaveFarmMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create or update a farm (Last-Write-Wins on clientUpdatedAt)
+ */
+export const useSaveFarm = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveFarm>>,
+    TError,
+    { data: BodyType<SaveFarmRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveFarm>>,
+  TError,
+  { data: BodyType<SaveFarmRequest> },
+  TContext
+> => {
+  return useMutation(getSaveFarmMutationOptions(options));
+};
+
+/**
+ * @summary Create or update a saved irrigator (Last-Write-Wins on clientUpdatedAt)
+ */
+export const getSaveIrrigatorUrl = () => {
+  return `/api/irrigators`;
+};
+
+export const saveIrrigator = async (
+  saveIrrigatorRequest: SaveIrrigatorRequest,
+  options?: RequestInit,
+): Promise<IrrigatorEnvelope> => {
+  return customFetch<IrrigatorEnvelope>(getSaveIrrigatorUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveIrrigatorRequest),
+  });
+};
+
+export const getSaveIrrigatorMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveIrrigator>>,
+    TError,
+    { data: BodyType<SaveIrrigatorRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof saveIrrigator>>,
+  TError,
+  { data: BodyType<SaveIrrigatorRequest> },
+  TContext
+> => {
+  const mutationKey = ["saveIrrigator"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof saveIrrigator>>,
+    { data: BodyType<SaveIrrigatorRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return saveIrrigator(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SaveIrrigatorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveIrrigator>>
+>;
+export type SaveIrrigatorMutationBody = BodyType<SaveIrrigatorRequest>;
+export type SaveIrrigatorMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create or update a saved irrigator (Last-Write-Wins on clientUpdatedAt)
+ */
+export const useSaveIrrigator = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof saveIrrigator>>,
+    TError,
+    { data: BodyType<SaveIrrigatorRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveIrrigator>>,
+  TError,
+  { data: BodyType<SaveIrrigatorRequest> },
+  TContext
+> => {
+  return useMutation(getSaveIrrigatorMutationOptions(options));
+};
 
 /**
  * @summary Get all reports (admin only)

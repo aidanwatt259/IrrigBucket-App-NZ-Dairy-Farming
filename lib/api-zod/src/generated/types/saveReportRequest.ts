@@ -24,5 +24,12 @@ export interface SaveReportRequest {
   duPercent?: string | null;
   /** @nullable */
   duStatus?: string | null;
+  /**
+   * Farm the report belongs to. Only applied when the caller is a member of that farm; omitting it keeps the report's existing farm link.
+   * @nullable
+   */
+  farmId?: string | null;
+  /** @nullable */
+  irrigatorId?: string | null;
   reportData: SaveReportRequestReportData;
 }

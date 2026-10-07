@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
-import type { SyncQueueItem, SyncReport } from '@workspace/sync';
+import type { FarmDirectorySnapshot, SyncQueueItem, SyncReport } from '@workspace/sync';
 import { calculateTestResults } from './calculations';
+import { GUEST_ACCOUNT } from './account';
 import type { SavedReport } from './savedReports';
 
 /**
@@ -9,6 +10,22 @@ import type { SavedReport } from './savedReports';
  * the sync-relevant columns mirrored to the API (see `@workspace/sync`).
  */
 export type StoredReport = SyncReport<SavedReport>;
+
+/**
+ * Which account a local report belongs to: a user id, or `GUEST_ACCOUNT` for
+ * reports created while logged out. Kept outside `reports` because the sync
+ * engine replaces report rows wholesale with server records.
+ */
+export interface ReportOwner {
+  reportId: string;
+  ownerId: string;
+}
+
+/** One account's farms and irrigators (see `FarmDirectory`), keyed by account. */
+export interface StoredFarmDirectory {
+  scope: string;
+  snapshot: FarmDirectorySnapshot;
+}
 
 /**
  * Dexie database backing the offline-first SyncEngine for the web app.
@@ -21,10 +38,14 @@ export type StoredReport = SyncReport<SavedReport>;
  *                  retry schedule. (SyncQueueItem has no `status`/`in_flight`
  *                  field — `inFlight` is tracked in-memory by the engine — so
  *                  those are intentionally not persisted/indexed.)
+ *  - `report_owners` PK `reportId`; index on `ownerId`. See {@link ReportOwner}.
+ *  - `farm_directory` PK `scope` (account). See {@link StoredFarmDirectory}.
  */
 export class IrrigBucketSyncDb extends Dexie {
   reports!: Table<StoredReport, string>;
   sync_queue!: Table<SyncQueueItem, string>;
+  report_owners!: Table<ReportOwner, string>;
+  farm_directory!: Table<StoredFarmDirectory, string>;
 
   constructor() {
     super('irrigbucket_sync');
@@ -32,10 +53,29 @@ export class IrrigBucketSyncDb extends Dexie {
       reports: 'id, deletedAt, clientUpdatedAt',
       sync_queue: 'enqueueId, &reportId, nextAttemptAt',
     });
+    // Reports saved before ownership existed: synced ones belong to their
+    // server owner; unsynced ones become guest reports, which the next account
+    // to sign in adopts.
+    this.version(2)
+      .stores({ report_owners: 'reportId, ownerId' })
+      .upgrade(async (tx) => {
+        const reports = await tx.table<StoredReport, string>('reports').toArray();
+        await tx.table<ReportOwner, string>('report_owners').bulkPut(
+          reports.map((r) => ({ reportId: r.id, ownerId: r.userId ?? GUEST_ACCOUNT })),
+        );
+      });
+    this.version(3).stores({ farm_directory: 'scope' });
   }
 }
 
 export const db = new IrrigBucketSyncDb();
+
+export async function getReportOwnerId(reportId: string): Promise<string> {
+  const row = await db.report_owners.get(reportId);
+  if (row) return row.ownerId;
+  const report = await db.reports.get(reportId);
+  return report?.userId ?? GUEST_ACCOUNT;
+}
 
 /**
  * Map a domain SavedReport into a SyncReport<SavedReport> for local storage and

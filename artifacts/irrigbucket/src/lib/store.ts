@@ -26,7 +26,18 @@ interface AppState {
   setPivotSections: (sections: PivotSection[]) => void;
   setOperationData: (data: Partial<OperationData>) => void;
   commitPivotSetup: (pivotSections: PivotSection[]) => void;
+  startRetest: (retest: RetestTarget) => void;
   reset: () => void;
+}
+
+/** A saved irrigator to start a new test for (see `startRetest`). */
+export interface RetestTarget {
+  irrigatorType: string;
+  details: Partial<SystemParams>;
+  farmId: string;
+  farmName: string;
+  irrigatorId: string;
+  irrigatorName: string;
 }
 
 const STORAGE_KEY = 'irrigbucket-draft';
@@ -90,7 +101,13 @@ const defaultState: PersistedSlice = {
 export const useAppStore = create<AppState>((set, get) => ({
   ...defaultState,
 
-  setIrrigatorType: (type) => set({ irrigatorType: type }),
+  setIrrigatorType: (type) => set((state) =>
+    state.irrigatorType === type || !state.operationData.irrigatorId
+      ? { irrigatorType: type }
+      : {
+          irrigatorType: type,
+          operationData: { ...state.operationData, irrigatorId: undefined, irrigatorName: '' },
+        }),
 
   setSystemParams: (params) => set((state) => ({
     systemParams: { ...state.systemParams, ...params },
@@ -139,6 +156,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       plan: { ...get().plan!, bucketCount: total, pivotSections },
     });
   },
+
+  // A fresh test for a saved irrigator: its last settings, farm and name are
+  // prefilled; the assessor carries over from the previous test.
+  startRetest: (retest) => set((state) => ({
+    irrigatorType: retest.irrigatorType,
+    systemParams: { ...defaultParams, ...retest.details },
+    plan: null,
+    volumes: [],
+    windSpeed: 0,
+    testDate: new Date().toISOString().split('T')[0],
+    sections: [],
+    pivotSections: [],
+    operationData: {
+      assessorName: state.operationData.assessorName,
+      farmId: retest.farmId,
+      farmName: retest.farmName,
+      irrigatorId: retest.irrigatorId,
+      irrigatorName: retest.irrigatorName,
+    },
+  })),
 
   reset: () => set({
     irrigatorType: null,

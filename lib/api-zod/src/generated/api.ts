@@ -128,6 +128,13 @@ export const SaveReportBody = zod.object({
   testDate: zod.string().nullish(),
   duPercent: zod.string().nullish(),
   duStatus: zod.string().nullish(),
+  farmId: zod
+    .string()
+    .nullish()
+    .describe(
+      "Farm the report belongs to. Only applied when the caller is a member of that farm; omitting it keeps the report's existing farm link.",
+    ),
+  irrigatorId: zod.string().nullish(),
   reportData: zod.record(zod.string(), zod.unknown()),
 });
 
@@ -152,6 +159,8 @@ export const GetMyReportsResponse = zod.object({
       testDate: zod.string().nullish(),
       duPercent: zod.string().nullish(),
       duStatus: zod.string().nullish(),
+      farmId: zod.string().nullish(),
+      irrigatorId: zod.string().nullish(),
       reportData: zod.record(zod.string(), zod.unknown()),
       createdAt: zod.string(),
       updatedAt: zod.string().nullish(),
@@ -185,12 +194,127 @@ export const GetReportByIdResponse = zod.object({
     testDate: zod.string().nullish(),
     duPercent: zod.string().nullish(),
     duStatus: zod.string().nullish(),
+    farmId: zod.string().nullish(),
+    irrigatorId: zod.string().nullish(),
     reportData: zod.record(zod.string(), zod.unknown()),
     createdAt: zod.string(),
     updatedAt: zod.string().nullish(),
     clientUpdatedAt: zod.string().nullish(),
     deletedAt: zod.string().nullish(),
   }),
+});
+
+/**
+ * @summary Get the farms (and their irrigators) the authenticated user can access
+ */
+export const GetMyFarmsHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetMyFarmsResponse = zod.object({
+  farms: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      region: zod.string().nullish(),
+      contactName: zod.string().nullish(),
+      contactEmail: zod.string().nullish(),
+      contactPhone: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      role: zod
+        .enum(["owner", "consultant", "farmer"])
+        .describe("The caller's role on this farm."),
+      createdAt: zod.string(),
+      updatedAt: zod.string().nullish(),
+      clientUpdatedAt: zod.string(),
+      deletedAt: zod.string().nullish(),
+    }),
+  ),
+  irrigators: zod.array(
+    zod.object({
+      id: zod.string(),
+      farmId: zod.string(),
+      name: zod.string(),
+      type: zod.string(),
+      details: zod.record(zod.string(), zod.unknown()),
+      testIntervalMonths: zod.number(),
+      createdAt: zod.string(),
+      updatedAt: zod.string().nullish(),
+      clientUpdatedAt: zod.string(),
+      deletedAt: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create or update a farm (Last-Write-Wins on clientUpdatedAt)
+ */
+export const SaveFarmHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const SaveFarmBody = zod.object({
+  id: zod.string().describe("Client-generated UUID; the upsert key."),
+  clientUpdatedAt: zod
+    .string()
+    .describe(
+      "ISO-8601 time of the client's last local edit (Last-Write-Wins).",
+    ),
+  name: zod.string(),
+  region: zod.string().nullish(),
+  contactName: zod.string().nullish(),
+  contactEmail: zod.string().nullish(),
+  contactPhone: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  deletedAt: zod
+    .string()
+    .nullish()
+    .describe("Set to tombstone (delete) the farm."),
+});
+
+/**
+ * @summary Create or update a saved irrigator (Last-Write-Wins on clientUpdatedAt)
+ */
+export const SaveIrrigatorHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const saveIrrigatorBodyTestIntervalMonthsMax = 120;
+
+export const SaveIrrigatorBody = zod.object({
+  id: zod.string().describe("Client-generated UUID; the upsert key."),
+  farmId: zod.string(),
+  clientUpdatedAt: zod
+    .string()
+    .describe(
+      "ISO-8601 time of the client's last local edit (Last-Write-Wins).",
+    ),
+  name: zod.string(),
+  type: zod
+    .string()
+    .describe("Irrigator type id (pivot, lateral, kline, gun, solid, boom)."),
+  details: zod
+    .record(zod.string(), zod.unknown())
+    .optional()
+    .describe("Last-used system settings, used to prefill a re-test."),
+  testIntervalMonths: zod
+    .number()
+    .min(1)
+    .max(saveIrrigatorBodyTestIntervalMonthsMax)
+    .optional(),
+  deletedAt: zod
+    .string()
+    .nullish()
+    .describe("Set to tombstone (delete) the irrigator."),
 });
 
 /**

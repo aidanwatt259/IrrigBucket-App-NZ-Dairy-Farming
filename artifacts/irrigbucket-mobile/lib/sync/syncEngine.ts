@@ -7,7 +7,7 @@ import {
   isServerWakingError,
 } from '@workspace/api-client-react';
 import { SyncEngine } from '@workspace/sync';
-import type { SyncReport, SyncStatus } from '@workspace/sync';
+import type { FarmIdRemap, SyncReport, SyncStatus } from '@workspace/sync';
 
 import { calculateTestResults } from '@/lib/calculations';
 import type { SavedReport } from '@/context/WizardContext';
@@ -15,6 +15,7 @@ import type { SavedReport } from '@/context/WizardContext';
 import { createSqliteAdapter } from './sqliteAdapter';
 import type { SqliteAdapter } from './sqliteAdapter';
 import { createTransport } from './transport';
+import { DEVICE_SCOPE, farmDirectory, setFarmRemapHandler } from './farmDirectory';
 
 const LEGACY_WIZARD_KEY = 'irrigbucket_wizard_state';
 const MIGRATED_FLAG = 'irrigbucket_sqlite_migrated';
@@ -168,8 +169,58 @@ function handleConnectivity(connected: boolean): void {
   applyOnline();
   if (connected && !wasConnected && authed) {
     void pullIfPossible();
+    void requestFarmSync();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Farms & irrigators — synced alongside reports once signed in.
+// ---------------------------------------------------------------------------
+
+/** Push local farm/irrigator edits (and pull) when signed in and connected. */
+export async function requestFarmSync(): Promise<void> {
+  if (!engine || !adapter || !authed || !lastConnected) return;
+  await farmDirectory.sync();
+  // Backfill only after a pull, so farms the server already has are matched
+  // by name rather than duplicated.
+  if (farmDirectory.getSnapshot().pulledAt && !farmDirectory.getSnapshot().backfilled) {
+    const reports = (await adapter.listReports())
+      .map((r) => r.reportData)
+      .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+    await farmDirectory.backfill(
+      reports.map((r) => ({
+        farmName: r.operationData?.farmName,
+        irrigatorName: r.operationData?.irrigatorName,
+        irrigatorType: r.irrigatorType,
+        details: { ...r.systemParams },
+      })),
+    );
+  }
+}
+
+/** Re-save local reports whose farm/irrigator was merged into a server record. */
+setFarmRemapHandler(async (remap: FarmIdRemap) => {
+  if (!engine || !adapter) return;
+  for (const report of await adapter.listReports()) {
+    const op = report.reportData.operationData ?? {};
+    const farmId = op.farmId && remap.farms.get(op.farmId);
+    const irrigatorId = op.irrigatorId && remap.irrigators.get(op.irrigatorId);
+    if (!farmId && !irrigatorId) continue;
+    await engine.enqueueUpsert({
+      ...report,
+      reportData: {
+        ...report.reportData,
+        operationData: {
+          ...op,
+          ...(farmId ? { farmId } : {}),
+          ...(irrigatorId ? { irrigatorId } : {}),
+        },
+      },
+      clientUpdatedAt: new Date().toISOString(),
+    });
+  }
+  notifyReportsChanged();
+});
 
 /**
  * One-time migration of the legacy AsyncStorage JSON blob into the durable
@@ -241,6 +292,7 @@ export function initSync(): Promise<void> {
       engine.setOnline(false);
 
       await runMigration();
+      await farmDirectory.open(DEVICE_SCOPE);
 
       // Connectivity is tracked always; it only drives draining once authed.
       NetInfo.addEventListener((state) => {
@@ -275,6 +327,7 @@ export async function enableSync(): Promise<void> {
   // Fire-and-forget: the pull now retries transient failures with backoff,
   // so awaiting it could block sign-in for the whole backoff window.
   void pullIfPossible();
+  void requestFarmSync();
 }
 
 /**
@@ -298,6 +351,7 @@ export async function purgeAllLocalData(): Promise<void> {
   applyOnline();
   await adapter!.purgeAll();
   serverWaking = false;
+  await farmDirectory.clear();
   emit({ state: 'offline', pending: 0, lastError: null });
 }
 
@@ -305,6 +359,13 @@ export async function purgeAllLocalData(): Promise<void> {
 export async function saveReport(saved: SavedReport): Promise<void> {
   await ensureReady();
   await engine!.enqueueUpsert(mapSavedToSync(saved));
+
+  // Remember the settings this irrigator was tested with, to prefill a re-test.
+  const irrigatorId = saved.operationData?.irrigatorId;
+  if (irrigatorId && farmDirectory.getIrrigator(irrigatorId)) {
+    await farmDirectory.updateIrrigator(irrigatorId, { details: { ...saved.systemParams } });
+    void requestFarmSync().catch(() => {});
+  }
 }
 
 /** Tombstone + enqueue a delete (or purge if never synced) through the engine. */

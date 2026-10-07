@@ -31,7 +31,7 @@ class StaleSessionError extends Error {
  * engine treats the throw as a normal failure and re-queues; upserts are
  * idempotent on `id`, so a re-push next sign-in is safe.
  */
-async function fenced<T>(op: () => Promise<T>): Promise<T> {
+export async function fenced<T>(op: () => Promise<T>): Promise<T> {
   const epoch = getTokenEpoch();
   const result = await op();
   if (getTokenEpoch() !== epoch) throw new StaleSessionError();
@@ -69,6 +69,8 @@ function syncToRequest(report: SyncReport<SavedReport>): SaveReportRequest {
     testDate: report.testDate,
     duPercent: report.duPercent,
     duStatus: report.duStatus,
+    farmId: report.reportData.operationData?.farmId,
+    irrigatorId: report.reportData.operationData?.irrigatorId,
     reportData: report.reportData as unknown as SaveReportRequestReportData,
   };
 }

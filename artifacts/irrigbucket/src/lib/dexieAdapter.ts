@@ -50,11 +50,12 @@ export const dexieAdapter: StorageAdapter<SavedReport> = {
   },
 
   async completeSync(report, enqueueId) {
-    return db.transaction('rw', db.reports, db.sync_queue, async () => {
+    return db.transaction('rw', db.reports, db.sync_queue, db.report_owners, async () => {
       const current = await db.sync_queue.where('reportId').equals(report.id).first();
       if (!current || current.enqueueId !== enqueueId) return false;
       await db.reports.put(report);
       await db.sync_queue.delete(current.enqueueId);
+      await adoptServerOwner(report);
       return true;
     });
   },
@@ -74,14 +75,15 @@ export const dexieAdapter: StorageAdapter<SavedReport> = {
   },
 
   async purgeReport(reportId) {
-    await db.transaction('rw', db.reports, db.sync_queue, async () => {
+    await db.transaction('rw', db.reports, db.sync_queue, db.report_owners, async () => {
       await db.reports.delete(reportId);
       await db.sync_queue.where('reportId').equals(reportId).delete();
+      await db.report_owners.delete(reportId);
     });
   },
 
   async applyRemoteBatch(adoptions: RemoteAdoption<SavedReport>[]) {
-    await db.transaction('rw', db.reports, db.sync_queue, async () => {
+    await db.transaction('rw', db.reports, db.sync_queue, db.report_owners, async () => {
       for (const { record, expectedLocalClientUpdatedAt } of adoptions) {
         const pending = await db.sync_queue.where('reportId').equals(record.id).first();
         if (pending) continue;
@@ -89,9 +91,17 @@ export const dexieAdapter: StorageAdapter<SavedReport> = {
         const localClientUpdatedAt = local?.clientUpdatedAt ?? null;
         if (localClientUpdatedAt !== expectedLocalClientUpdatedAt) continue;
         await db.reports.put(record);
+        await adoptServerOwner(record);
       }
     });
   },
 };
+
+/** The server is authoritative for ownership once it has assigned one. */
+async function adoptServerOwner(record: SyncReport<SavedReport>): Promise<void> {
+  if (record.userId) {
+    await db.report_owners.put({ reportId: record.id, ownerId: record.userId });
+  }
+}
 
 export type { SyncQueueItem, SyncReport };

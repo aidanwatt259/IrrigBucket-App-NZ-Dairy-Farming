@@ -29,3 +29,27 @@ export {
 } from "./reconcile.js";
 
 export { SyncEngine } from "./engine.js";
+
+export type {
+  BackfillEntry,
+  FarmDirectoryOptions,
+  FarmDirectorySnapshot,
+  FarmDirectoryStore,
+  FarmDirectoryTransport,
+  FarmIdRemap,
+  FarmInput,
+  FarmRole,
+  IrrigatorInput,
+  LocalFarm,
+  LocalIrrigator,
+  RemoteFarm,
+  RemoteIrrigator,
+} from "./farms.js";
+
+export {
+  DEFAULT_TEST_INTERVAL_MONTHS,
+  FarmDirectory,
+  isDirty,
+  mergeRemote,
+  normalizeName,
+} from "./farms.js";

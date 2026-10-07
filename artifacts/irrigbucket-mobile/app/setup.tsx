@@ -3,11 +3,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppKeyboardToolbar } from '@/components/ui/AppKeyboardToolbar';
 
+import type { LocalIrrigator } from '@workspace/sync';
+
+import {
+  FarmIrrigatorPicker,
+  initialFarmIrrigatorValue,
+  resolveFarmIrrigator,
+} from '@/components/farms/FarmIrrigatorPicker';
 import { AppButton } from '@/components/ui/AppButton';
 import { FormField } from '@/components/ui/FormField';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
 import { useColors } from '@/hooks/useColors';
+import { requestFarmSync } from '@/lib/sync/syncEngine';
 
 const TYPE_LABELS: Record<string, string> = {
   pivot: 'Centre Pivot', lateral: 'Lateral Move', kline: 'K-Line / Pods',
@@ -38,8 +46,6 @@ export default function SetupScreen() {
   } = useWizard();
 
   const [values, setValues] = useState({
-    farmName: operationData.farmName ?? '',
-    irrigatorName: operationData.irrigatorName ?? '',
     assessorName: operationData.assessorName ?? '',
     testDate: testDate || new Date().toISOString().split('T')[0],
     diameter: String(systemParams.diameter || 250),
@@ -66,13 +72,17 @@ export default function SetupScreen() {
     flowRate: systemParams.flowRate != null ? String(systemParams.flowRate) : '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [farmValue, setFarmValue] = useState(() =>
+    initialFarmIrrigatorValue(operationData, irrigatorType ?? ''),
+  );
+  const [submitting, setSubmitting] = useState(false);
 
   // Ordered list of the editable numeric fields for the current irrigator type,
   // used to wire "press enter → jump to next box" (and the keyboard toolbar's
   // prev/next arrows follow the same on-screen order automatically).
   const inputRefs = useRef<Record<string, TextInput | null>>({});
   const orderedFields = useMemo<string[]>(() => {
-    const info = ['farmName', 'irrigatorName', 'assessorName', 'testDate'];
+    const info = ['assessorName', 'testDate'];
     const bucket = ['diameter', 'targetDepth'];
     let typeFields: string[] = [];
     switch (irrigatorType) {
@@ -128,10 +138,24 @@ export default function SetupScreen() {
     return Object.keys(next).length === 0;
   };
 
-  const handleNext = () => {
-    if (!validate()) return;
+  // Prefill the technical fields with the settings a saved irrigator was last tested with.
+  const applyIrrigatorDetails = (irrigator: LocalIrrigator) => {
+    setValues(prev => {
+      const next = { ...prev };
+      for (const [key, raw] of Object.entries(irrigator.details)) {
+        if (!(key in next) || raw == null || raw === '') continue;
+        if (key === 'pressureUnit') next.pressureUnit = raw === 'psi' ? 'psi' : 'kPa';
+        else (next as Record<string, string>)[key] = String(raw);
+      }
+      return next;
+    });
+    setErrors({});
+  };
+
+  const handleNext = async () => {
+    if (submitting || !validate()) return;
     const klineMins = values.klineTestMinutes.trim() ? Number(values.klineTestMinutes) : undefined;
-    setSystemParams({
+    const params = {
       diameter: Number(values.diameter),
       targetDepth: Number(values.targetDepth),
       armLength: Number(values.armLength),
@@ -154,12 +178,16 @@ export default function SetupScreen() {
       revolutionTime: optNum(values.revolutionTime),
       numSprinklers: optNum(values.numSprinklers),
       flowRate: optNum(values.flowRate),
-    });
-    setOperationData({
-      farmName: values.farmName.trim(),
-      irrigatorName: values.irrigatorName.trim(),
-      assessorName: values.assessorName.trim(),
-    });
+    } as const;
+    setSystemParams(params);
+    setSubmitting(true);
+    try {
+      const farmFields = await resolveFarmIrrigator(farmValue, irrigatorType, { ...params });
+      void requestFarmSync().catch(() => {});
+      setOperationData({ ...farmFields, assessorName: values.assessorName.trim() });
+    } finally {
+      setSubmitting(false);
+    }
     if (values.testDate) setTestConditions(values.testDate, windSpeed);
     generatePlan();
     router.push('/plan');
@@ -172,7 +200,7 @@ export default function SetupScreen() {
     if (i >= 0 && i < orderedFields.length - 1) {
       inputRefs.current[orderedFields[i + 1]]?.focus();
     } else {
-      handleNext();
+      void handleNext();
     }
   };
   const reg = (name: string) => ({
@@ -199,21 +227,12 @@ export default function SetupScreen() {
               Test Information
             </Text>
             <View style={styles.fieldGroup}>
-              <FormField
-                label="Farm Name"
-                hint="Optional"
-                value={values.farmName}
-                onChangeText={v => set('farmName', v)}
-                placeholder="e.g. Wiper Farm Road"
-                {...reg('farmName')}
-              />
-              <FormField
-                label={irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}
-                hint="Optional"
-                value={values.irrigatorName}
-                onChangeText={v => set('irrigatorName', v)}
-                placeholder="e.g. Pivot 2 North"
-                {...reg('irrigatorName')}
+              <FarmIrrigatorPicker
+                value={farmValue}
+                onChange={setFarmValue}
+                irrigatorType={irrigatorType}
+                irrigatorLabel={irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}
+                onIrrigatorPicked={applyIrrigatorDetails}
               />
               <FormField
                 label="Assessor Name"
@@ -411,7 +430,8 @@ export default function SetupScreen() {
           <AppButton
             label={isPivot ? 'Calculate Bucket Test Setup →' : 'Calculate Test Plan →'}
             size="lg"
-            onPress={handleNext}
+            onPress={() => void handleNext()}
+            disabled={submitting}
             testID="next-button"
           />
         </ScrollView>

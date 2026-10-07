@@ -23,6 +23,10 @@ export interface ReportRecord {
   duPercent?: string | null;
   /** @nullable */
   duStatus?: string | null;
+  /** @nullable */
+  farmId?: string | null;
+  /** @nullable */
+  irrigatorId?: string | null;
   reportData: ReportRecordReportData;
   createdAt: string;
   /** @nullable */

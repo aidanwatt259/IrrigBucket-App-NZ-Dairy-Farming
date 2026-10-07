@@ -7,7 +7,9 @@ import {
 } from "../lib/supabase.js";
 import { decideReportUpsert } from "../lib/reportUpsert.js";
 import { isAdmin } from "../lib/admin";
+import { mayLinkReportToFarm } from "../lib/farmUpsert.js";
 import { userHasPaidAccess } from "./billing";
+import { getFarmRole, isUuid } from "./farms";
 
 const router: IRouter = Router();
 
@@ -110,6 +112,7 @@ router.post("/reports", async (req, res) => {
     du_status: body.duStatus ?? null,
     report_data: body.reportData,
     client_updated_at: incomingClientUpdatedAt,
+    ...(await resolveReportFarmLink(req, body.farmId, body.irrigatorId)),
   };
 
   if (decision.kind === "insert") {
@@ -306,6 +309,46 @@ router.patch("/reports/:id/restore", async (req, res) => {
   res.json({ success: true });
 });
 
+/**
+ * The farm/irrigator columns a report save may set. Returns an empty object
+ * (keep whatever link the row already has) when no farm is named, the caller
+ * may not use that farm, or the lookup fails — a save is never rejected over
+ * its farm link, so an offline device's queued report cannot get stuck.
+ */
+async function resolveReportFarmLink(
+  req: Request,
+  farmId: string | null | undefined,
+  irrigatorId: string | null | undefined,
+): Promise<{ farm_id?: string; irrigator_id?: string }> {
+  const callerId = req.user?.id ?? null;
+  if (!callerId || !isUuid(farmId)) return {};
+  try {
+    const { data: farm, error } = await supabase
+      .from("farms")
+      .select("id")
+      .eq("id", farmId)
+      .maybeSingle();
+    if (error) throw error;
+    const role = farm ? await getFarmRole(farmId, callerId) : null;
+    if (!mayLinkReportToFarm({ callerId, farmExists: !!farm, role, isAdmin: isAdmin(req) })) {
+      return {};
+    }
+    if (!isUuid(irrigatorId)) return { farm_id: farmId };
+    const { data: irrigator, error: irrigatorError } = await supabase
+      .from("irrigators")
+      .select("farm_id")
+      .eq("id", irrigatorId)
+      .maybeSingle();
+    if (irrigatorError) throw irrigatorError;
+    return !irrigator || irrigator.farm_id === farmId
+      ? { farm_id: farmId, irrigator_id: irrigatorId }
+      : { farm_id: farmId };
+  } catch (err) {
+    console.error("Report farm link lookup failed:", err);
+    return {};
+  }
+}
+
 // Fetch the current stored row for a client id, used to echo back the
 // authoritative winner after a concurrent insert or guarded-update race.
 async function fetchAuthoritativeReport(id: string) {
@@ -327,6 +370,8 @@ function toReportResponse(r: {
   report_data: unknown;
   du_percent: string | null;
   du_status: string | null;
+  farm_id?: string | null;
+  irrigator_id?: string | null;
   created_at: string;
   updated_at?: string | null;
   client_updated_at?: string | null;
@@ -342,6 +387,8 @@ function toReportResponse(r: {
     reportData: r.report_data,
     duPercent: r.du_percent,
     duStatus: r.du_status,
+    farmId: r.farm_id ?? null,
+    irrigatorId: r.irrigator_id ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at ?? null,
     clientUpdatedAt: r.client_updated_at ?? null,

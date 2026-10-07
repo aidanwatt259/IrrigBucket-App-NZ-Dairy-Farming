@@ -1,4 +1,4 @@
-import { SyncEngine, type SyncStatus } from '@workspace/sync';
+import { SyncEngine, type FarmIdRemap, type SyncStatus } from '@workspace/sync';
 import {
   isTransientApiError,
   isServerWakingError,
@@ -6,7 +6,16 @@ import {
 import { db, savedReportToSyncReport } from './syncDb';
 import { dexieAdapter } from './dexieAdapter';
 import { transport } from './transport';
+import { farmDirectory, setFarmRemapHandler } from './farmDirectory';
 import type { SavedReport } from './savedReports';
+import {
+  GUEST_ACCOUNT,
+  clearAccountSessionState,
+  getCurrentAccount,
+  resolveAccount,
+  setAccountSetup,
+  type AccountResolution,
+} from './account';
 
 /**
  * The singleton {@link SyncEngine} wiring the Dexie {@link dexieAdapter} to the
@@ -99,6 +108,48 @@ async function runMigration(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Account scoping — see ./account.ts.
+// ---------------------------------------------------------------------------
+
+async function applyAccount({ current, previous }: AccountResolution): Promise<void> {
+  if (previous !== GUEST_ACCOUNT && previous !== current) {
+    clearAccountSessionState();
+  }
+  await farmDirectory.open(current);
+  if (current === GUEST_ACCOUNT) return;
+
+  // Farms made while logged out join the account too; any that match one of its
+  // farms by name are merged, so their reports are re-pointed below.
+  const remap = await farmDirectory.adoptScope(GUEST_ACCOUNT);
+
+  // Reports made while logged out join the account that signs in next.
+  const owners = new Map(
+    (await db.report_owners.toArray()).map((o) => [o.reportId, o.ownerId]),
+  );
+  const guestReports = (await db.reports.toArray()).filter(
+    (r) => (owners.get(r.id) ?? r.userId ?? GUEST_ACCOUNT) === GUEST_ACCOUNT,
+  );
+  for (const report of guestReports) {
+    await db.report_owners.put({ reportId: report.id, ownerId: current });
+    owners.set(report.id, current);
+    if (report.deletedAt === null && report.syncedAt !== null) {
+      // The server holds an anonymous copy; a newer save lets this account claim it.
+      await syncEngine.enqueueUpsert({ ...report, clientUpdatedAt: new Date().toISOString() });
+    }
+  }
+  await repointReports(current, remap);
+
+  // Retry this account's queued saves now rather than waiting out the backoff
+  // they built up while another account was signed in.
+  const nowIso = new Date().toISOString();
+  for (const item of await db.sync_queue.toArray()) {
+    if (owners.get(item.reportId) === current && item.nextAttemptAt > nowIso) {
+      await db.sync_queue.update(item.enqueueId, { nextAttemptAt: nowIso });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Connectivity wiring + startup.
 // ---------------------------------------------------------------------------
 
@@ -116,6 +167,8 @@ let pullInFlight = false;
 
 async function pullWithRetry(): Promise<void> {
   if (pullInFlight) return;
+  // Guests have no server copy to pull.
+  if ((await getCurrentAccount()) === GUEST_ACCOUNT) return;
   pullInFlight = true;
   try {
     for (let attempt = 1; attempt <= PULL_MAX_ATTEMPTS; attempt++) {
@@ -147,8 +200,85 @@ async function pullWithRetry(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Farms & irrigators — synced alongside reports for signed-in accounts.
+// ---------------------------------------------------------------------------
+
+/** Re-save the account's reports whose farm/irrigator was merged into another. */
+async function repointReports(account: string, remap: FarmIdRemap): Promise<void> {
+  if (remap.farms.size === 0 && remap.irrigators.size === 0) return;
+  const owners = new Map(
+    (await db.report_owners.toArray()).map((o) => [o.reportId, o.ownerId]),
+  );
+  for (const report of await db.reports.toArray()) {
+    if (report.deletedAt !== null) continue;
+    if ((owners.get(report.id) ?? report.userId ?? GUEST_ACCOUNT) !== account) continue;
+    const op = report.reportData.operationData ?? {};
+    const farmId = op.farmId && remap.farms.get(op.farmId);
+    const irrigatorId = op.irrigatorId && remap.irrigators.get(op.irrigatorId);
+    if (!farmId && !irrigatorId) continue;
+    await syncEngine.enqueueUpsert({
+      ...report,
+      reportData: {
+        ...report.reportData,
+        operationData: {
+          ...op,
+          ...(farmId ? { farmId } : {}),
+          ...(irrigatorId ? { irrigatorId } : {}),
+        },
+      },
+      clientUpdatedAt: new Date().toISOString(),
+    });
+  }
+}
+
+setFarmRemapHandler(async (remap) => {
+  await repointReports(await getCurrentAccount(), remap);
+});
+
+/** Create farms/irrigators named on this account's reports from before farms existed. */
+async function backfillFarms(account: string): Promise<void> {
+  if (farmDirectory.getSnapshot().backfilled) return;
+  const owners = new Map(
+    (await db.report_owners.toArray()).map((o) => [o.reportId, o.ownerId]),
+  );
+  const reports = (await db.reports.toArray())
+    .filter(
+      (r) =>
+        r.deletedAt === null &&
+        (owners.get(r.id) ?? r.userId ?? GUEST_ACCOUNT) === account,
+    )
+    .sort((a, b) => b.reportData.savedAt.localeCompare(a.reportData.savedAt));
+  await farmDirectory.backfill(
+    reports.map(({ reportData: r }) => ({
+      farmName: r.operationData?.farmName,
+      irrigatorName: r.operationData?.irrigatorName,
+      irrigatorType: r.irrigatorType,
+      details: { ...r.systemParams },
+    })),
+  );
+}
+
+async function syncFarms(): Promise<void> {
+  const account = await getCurrentAccount();
+  if (account === GUEST_ACCOUNT) {
+    await backfillFarms(account);
+    return;
+  }
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  await farmDirectory.sync();
+  // Wait for one successful pull so server-side farms are matched by name.
+  if (farmDirectory.getSnapshot().pulledAt) await backfillFarms(account);
+}
+
+/** Push local farm/irrigator edits (and pull) when signed in and online. */
+export function requestFarmSync(): Promise<void> {
+  return syncFarms().catch(() => {});
+}
+
 function handleOnline(): void {
   syncEngine.setOnline(true);
+  void requestFarmSync();
   void pullWithRetry();
 }
 
@@ -171,11 +301,19 @@ export function initSyncEngine(): void {
     window.addEventListener('offline', handleOffline);
   }
 
+  const setup = (async () => {
+    const account = await resolveAccount();
+    await runMigration();
+    await applyAccount(account);
+  })();
+  setAccountSetup(setup);
+
   void (async () => {
     syncEngine.setOnline(
       typeof navigator !== 'undefined' ? navigator.onLine : true,
     );
-    await runMigration();
+    await setup.catch(() => {});
+    void requestFarmSync();
     if (typeof navigator === 'undefined' || navigator.onLine) {
       await pullWithRetry();
     }

@@ -42,6 +42,16 @@ export interface SavedReport {
   operationData: OperationData;
 }
 
+/** A saved irrigator to start a new test for (see `startRetest`). */
+export interface RetestTarget {
+  irrigatorType: string;
+  details: Partial<SystemParams>;
+  farmId: string;
+  farmName: string;
+  irrigatorId: string;
+  irrigatorName: string;
+}
+
 interface WizardContextValue extends WizardState {
   setIrrigatorType: (type: string) => void;
   setSystemParams: (params: Partial<SystemParams>) => void;
@@ -50,6 +60,7 @@ interface WizardContextValue extends WizardState {
   setVolume: (index: number, value: number) => void;
   setTestConditions: (date: string, windSpeed: number | null) => void;
   setSections: (sections: SectionDefinition[]) => void;
+  startRetest: (retest: RetestTarget) => void;
   reset: () => void;
   saveCurrentReport: () => SavedReport | null;
   deleteReport: (id: string) => void;
@@ -117,7 +128,15 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSavedReports]);
 
   const setIrrigatorType = useCallback((type: string) => {
-    setState(prev => ({ ...prev, irrigatorType: type }));
+    setState(prev =>
+      prev.irrigatorType === type || !prev.operationData.irrigatorId
+        ? { ...prev, irrigatorType: type }
+        : {
+            ...prev,
+            irrigatorType: type,
+            operationData: { ...prev.operationData, irrigatorId: undefined, irrigatorName: '' },
+          },
+    );
   }, []);
 
   const setSystemParams = useCallback((params: Partial<SystemParams>) => {
@@ -154,6 +173,23 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
 
   const setSections = useCallback((sections: SectionDefinition[]) => {
     setState(prev => ({ ...prev, sections }));
+  }, []);
+
+  const startRetest = useCallback((retest: RetestTarget) => {
+    setState(prev => ({
+      ...initialState,
+      savedReports: prev.savedReports,
+      irrigatorType: retest.irrigatorType,
+      systemParams: { ...defaultParams, ...retest.details },
+      testDate: new Date().toISOString().split('T')[0],
+      operationData: {
+        assessorName: prev.operationData.assessorName,
+        farmId: retest.farmId,
+        farmName: retest.farmName,
+        irrigatorId: retest.irrigatorId,
+        irrigatorName: retest.irrigatorName,
+      },
+    }));
   }, []);
 
   const reset = useCallback(() => {
@@ -203,6 +239,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
       setVolume,
       setTestConditions,
       setSections,
+      startRetest,
       reset,
       saveCurrentReport,
       deleteReport,

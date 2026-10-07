@@ -34,7 +34,32 @@ export async function clientHarness(platform: "web" | "mobile") {
       }
     } },
     "@workspace/api-client-react": apiErrors,
-    "./syncDb": { db: {}, savedReportToSyncReport: () => {} },
+    "./syncDb": {
+      db: {
+        reports: { toArray: async () => [] },
+        report_owners: { toArray: async () => [] },
+        sync_queue: { toArray: async () => [] },
+      },
+      savedReportToSyncReport: () => {},
+    },
+    "./account": {
+      GUEST_ACCOUNT: "guest",
+      getCurrentAccount: async () => "test-account",
+      resolveAccount: async () => ({ current: "test-account", previous: "test-account" }),
+      clearAccountSessionState: () => {},
+      setAccountSetup: () => {},
+    },
+    "./farmDirectory": {
+      DEVICE_SCOPE: "device",
+      setFarmRemapHandler: () => {},
+      farmDirectory: {
+        open: async () => {},
+        sync: async () => {},
+        clear: async () => {},
+        adoptScope: async () => ({ farms: new Map(), irrigators: new Map() }),
+        getSnapshot: () => ({ backfilled: true, pulledAt: null }),
+      },
+    },
     "./dexieAdapter": { dexieAdapter: {} },
     "./transport": {
       transport: {},

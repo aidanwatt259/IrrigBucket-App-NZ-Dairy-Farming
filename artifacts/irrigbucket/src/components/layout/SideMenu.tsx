@@ -9,6 +9,7 @@ import {
   getSavedReports, deleteReport, getReportLabel, getReportSubLabel, SavedReport,
   saveReport as saveLocalReport,
 } from '@/lib/savedReports';
+import { prepareForLogout } from '@/lib/account';
 import { useAuth } from '@workspace/replit-auth-web';
 
 interface ServerReport {
@@ -492,7 +493,10 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                 variant="ghost"
                 size="sm"
                 className="shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={logout}
+                onClick={() => {
+                  prepareForLogout();
+                  logout();
+                }}
               >
                 <LogOut className="w-4 h-4 mr-1.5" />
                 Log out

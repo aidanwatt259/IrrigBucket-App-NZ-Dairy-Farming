@@ -13,6 +13,8 @@ import {
 import { useAppStore } from '@/lib/store';
 import { Card } from '@/components/ui/card';
 import { SideMenu } from '@/components/layout/SideMenu';
+import type { LocalFarm, LocalIrrigator } from '@workspace/sync';
+import { farmDirectory, useFarmDirectory } from '@/lib/farmDirectory';
 
 function RotoRainerIcon({ className }: { className?: string }) {
   return (
@@ -72,11 +74,28 @@ const irrigatorTypes = [
 export default function Home() {
   const [, setLocation] = useLocation();
   const setIrrigatorType = useAppStore(state => state.setIrrigatorType);
+  const startRetest = useAppStore(state => state.startRetest);
   const currentType = useAppStore(state => state.irrigatorType);
   const [menuOpen, setMenuOpen] = useState(false);
+  useFarmDirectory();
+  const savedIrrigators = farmDirectory.listFarms().flatMap((farm) =>
+    farmDirectory.listIrrigators(farm.id).map((irrigator) => ({ farm, irrigator })),
+  );
 
   const handleSelect = (id: string) => {
     setIrrigatorType(id);
+    setLocation('/setup');
+  };
+
+  const handleRetest = (farm: LocalFarm, irrigator: LocalIrrigator) => {
+    startRetest({
+      irrigatorType: irrigator.type,
+      details: irrigator.details,
+      farmId: farm.id,
+      farmName: farm.name,
+      irrigatorId: irrigator.id,
+      irrigatorName: irrigator.name,
+    });
     setLocation('/setup');
   };
 
@@ -130,9 +149,55 @@ export default function Home() {
         </motion.div>
       </div>
 
+      {/* Saved irrigators */}
+      {savedIrrigators.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
+          <h2 className="text-2xl font-display font-bold text-center mb-2">Re-test a saved irrigator</h2>
+          <p className="text-muted-foreground text-center mb-8">Its farm and last settings are filled in for you.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedIrrigators.map(({ farm, irrigator }) => {
+              const type = irrigatorTypes.find(t => t.id === irrigator.type);
+              return (
+                <Card
+                  key={irrigator.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Re-test ${irrigator.name} at ${farm.name}`}
+                  className="cursor-pointer transition-all duration-300 hover-elevate hover:border-primary/50 text-left"
+                  onClick={() => handleRetest(farm, irrigator)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleRetest(farm, irrigator);
+                    }
+                  }}
+                >
+                  <div className="p-5 flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0">
+                      {type?.custom
+                        ? <RotoRainerIcon className="w-6 h-6" />
+                        : (() => { const Icon = type?.icon ?? Droplet; return <Icon className="w-6 h-6" />; })()
+                      }
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold font-display truncate">{irrigator.name}</h3>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {farm.name}{type ? ` · ${type.name}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Selection Grid */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-2xl font-display font-bold text-center mb-10">Select your irrigator type to begin:</h2>
+        <h2 className="text-2xl font-display font-bold text-center mb-10">
+          {savedIrrigators.length > 0 ? 'Or test a new irrigator:' : 'Select your irrigator type to begin:'}
+        </h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {irrigatorTypes.map((type, i) => {

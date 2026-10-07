@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
-import { initSyncEngine } from "@/lib/syncEngine";
 
 import Home from "@/pages/Home";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -60,10 +59,6 @@ function Router() {
 }
 
 function App() {
-  useEffect(() => {
-    initSyncEngine();
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

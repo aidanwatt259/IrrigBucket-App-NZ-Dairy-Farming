@@ -3,6 +3,7 @@ import { isDbReady } from "../lib/migrate";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import reportsRouter from "./reports";
+import farmsRouter from "./farms";
 import helpRequestsRouter from "./helpRequests";
 import feedbackRouter from "./feedback";
 import adminRouter from "./admin";
@@ -29,6 +30,7 @@ router.use((_req, res, next) => {
 
 router.use(authRouter);
 router.use(reportsRouter);
+router.use(farmsRouter);
 router.use(helpRequestsRouter);
 router.use(feedbackRouter);
 router.use(adminRouter);

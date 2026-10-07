@@ -1,8 +1,10 @@
 import {
   SystemParams, Plan, SectionDefinition, PivotSection, OperationData,
 } from './calculations';
-import { db, savedReportToSyncReport } from './syncDb';
-import { syncEngine } from './syncEngine';
+import { db, getReportOwnerId, savedReportToSyncReport } from './syncDb';
+import { requestFarmSync, syncEngine } from './syncEngine';
+import { farmDirectory } from './farmDirectory';
+import { GUEST_ACCOUNT, getCurrentAccount } from './account';
 
 export interface SavedReport {
   id: string;
@@ -18,13 +20,24 @@ export interface SavedReport {
 }
 
 /**
- * All non-deleted saved reports, newest-first. Reads straight from the durable
- * Dexie store (the local-first source of truth behind the SyncEngine).
+ * The current account's non-deleted saved reports, newest-first. Reads straight
+ * from the durable Dexie store (the local-first source of truth behind the
+ * SyncEngine).
  */
 export async function getSavedReports(): Promise<SavedReport[]> {
-  const stored = await db.reports.filter((r) => r.deletedAt === null).toArray();
-  // Newest-first by client modification time (ISO strings sort chronologically).
-  stored.sort((a, b) => b.clientUpdatedAt.localeCompare(a.clientUpdatedAt));
+  const account = await getCurrentAccount();
+  const owners = new Map(
+    (await db.report_owners.toArray()).map((o) => [o.reportId, o.ownerId]),
+  );
+  const stored = await db.reports
+    .filter(
+      (r) =>
+        r.deletedAt === null &&
+        (owners.get(r.id) ?? r.userId ?? GUEST_ACCOUNT) === account,
+    )
+    .toArray();
+  // Newest-first by save time (ISO strings sort chronologically).
+  stored.sort((a, b) => b.reportData.savedAt.localeCompare(a.reportData.savedAt));
   return stored.map((r) => r.reportData);
 }
 
@@ -51,13 +64,23 @@ export async function saveReport(
     id: crypto.randomUUID(),
     savedAt: new Date().toISOString(),
   };
+  // Owner first: the enqueue below can start a push immediately.
+  await db.report_owners.put({ reportId: report.id, ownerId: await getCurrentAccount() });
   await syncEngine.enqueueUpsert(savedReportToSyncReport(report));
+
+  // Remember the settings this irrigator was tested with, to prefill a re-test.
+  const irrigatorId = report.operationData?.irrigatorId;
+  if (irrigatorId && farmDirectory.getIrrigator(irrigatorId)) {
+    await farmDirectory.updateIrrigator(irrigatorId, { details: { ...report.systemParams } });
+    void requestFarmSync();
+  }
   return report;
 }
 
 export async function getReportById(id: string): Promise<SavedReport | null> {
   const stored = await db.reports.get(id);
   if (!stored || stored.deletedAt !== null) return null;
+  if ((await getReportOwnerId(id)) !== (await getCurrentAccount())) return null;
   return stored.reportData;
 }
 

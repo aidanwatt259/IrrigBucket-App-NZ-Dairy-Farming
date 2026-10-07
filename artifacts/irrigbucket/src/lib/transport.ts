@@ -8,6 +8,23 @@ import {
 } from '@workspace/api-client-react';
 import type { PullOptions, SyncReport, Transport } from '@workspace/sync';
 import type { SavedReport } from './savedReports';
+import { getCurrentAccount } from './account';
+import { getReportOwnerId } from './syncDb';
+
+/**
+ * The server files a new report under whoever is signed in, so a report must
+ * only be sent while its own account is active. The failed attempt stays queued
+ * and is retried once that account signs back in.
+ */
+async function assertOwnedByCurrentAccount(reportId: string): Promise<void> {
+  const [owner, current] = await Promise.all([
+    getReportOwnerId(reportId),
+    getCurrentAccount(),
+  ]);
+  if (owner !== current) {
+    throw new Error('Waiting for the account that saved this report to sign in');
+  }
+}
 
 /**
  * Map a server {@link ReportRecord} into the engine's {@link SyncReport}. The
@@ -40,6 +57,7 @@ function recordToSyncReport(record: ReportRecord): SyncReport<SavedReport> {
  */
 export const transport: Transport<SavedReport> = {
   async pushReport(report) {
+    await assertOwnedByCurrentAccount(report.id);
     const body: SaveReportRequest = {
       id: report.id,
       clientUpdatedAt: report.clientUpdatedAt,
@@ -49,6 +67,8 @@ export const transport: Transport<SavedReport> = {
       testDate: report.testDate,
       duPercent: report.duPercent,
       duStatus: report.duStatus,
+      farmId: report.reportData.operationData?.farmId,
+      irrigatorId: report.reportData.operationData?.irrigatorId,
       reportData: report.reportData as unknown as SaveReportRequestReportData,
     };
     const envelope = await apiSaveReport(body, { credentials: 'include' });
@@ -56,6 +76,7 @@ export const transport: Transport<SavedReport> = {
   },
 
   async deleteReport(report) {
+    await assertOwnedByCurrentAccount(report.id);
     await customFetch(`/api/reports/${encodeURIComponent(report.id)}`, {
       method: 'DELETE',
       credentials: 'include',
