@@ -10,6 +10,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { LocalIrrigator } from '@workspace/sync';
+import {
+  FarmIrrigatorFields,
+  initialFarmIrrigatorValue,
+  resolveFarmIrrigator,
+  type FarmIrrigatorValue,
+} from '@/components/farms/FarmIrrigatorFields';
+import { requestFarmSync } from '@/lib/syncEngine';
 
 function FieldHint({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
@@ -31,6 +39,9 @@ export default function SystemSetup() {
     operationData, setOperationData, testDate, windSpeed, setTestConditions,
   } = useAppStore();
   const [hasEndGun, setHasEndGun] = useState<string>(systemParams.hasEndGun ?? 'No');
+  const [farmValue, setFarmValue] = useState<FarmIrrigatorValue>(() =>
+    initialFarmIrrigatorValue(operationData, irrigatorType ?? ''),
+  );
 
   useEffect(() => {
     if (!irrigatorType) setLocation('/');
@@ -39,8 +50,6 @@ export default function SystemSetup() {
   const baseSchema = z.object({
     diameter: z.coerce.number().min(50).max(1000),
     targetDepth: z.coerce.number().min(1).max(100),
-    farmName: z.string().optional(),
-    irrigatorName: z.string().optional(),
     assessorName: z.string().optional(),
     testDate: z.string().optional(),
     // Common to every irrigator type
@@ -104,12 +113,10 @@ export default function SystemSetup() {
 
   type FormData = z.infer<typeof schema>;
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       ...systemParams,
-      farmName: operationData.farmName ?? '',
-      irrigatorName: operationData.irrigatorName ?? '',
       assessorName: operationData.assessorName ?? '',
       testDate: testDate || new Date().toISOString().split('T')[0],
       operatingPressure: systemParams.operatingPressure || undefined,
@@ -132,9 +139,18 @@ export default function SystemSetup() {
     }
   });
 
-  const onSubmit = (data: FormData) => {
-    const { farmName, irrigatorName, assessorName, testDate: td, ...techParams } = data as FormData & {
-      farmName?: string; irrigatorName?: string; assessorName?: string; testDate?: string;
+  // Prefill the technical fields from a saved irrigator's last test.
+  const applyIrrigatorDetails = (irrigator: LocalIrrigator) => {
+    const details = irrigator.details as Partial<typeof systemParams>;
+    for (const [key, val] of Object.entries(details)) {
+      if (key === 'hasEndGun') setHasEndGun(String(val));
+      else if (val != null) setValue(key as never, val as never);
+    }
+  };
+
+  const onSubmit = async (data: FormData) => {
+    const { assessorName, testDate: td, ...techParams } = data as FormData & {
+      assessorName?: string; testDate?: string;
     };
     const merged = { ...techParams, hasEndGun } as Partial<typeof systemParams>;
     // K-Line records its test duration in klineTestMinutes — mirror it into the
@@ -142,8 +158,13 @@ export default function SystemSetup() {
     if (irrigatorType === 'kline' && merged.klineTestMinutes) {
       merged.testRunMinutes = merged.klineTestMinutes;
     }
+    const farmFields = await resolveFarmIrrigator(farmValue, irrigatorType!, {
+      ...systemParams,
+      ...merged,
+    });
+    void requestFarmSync();
     setSystemParams(merged);
-    setOperationData({ farmName: farmName ?? '', irrigatorName: irrigatorName ?? '', assessorName: assessorName ?? '' });
+    setOperationData({ ...farmFields, assessorName: assessorName ?? '' });
     if (td) setTestConditions(td, windSpeed);
     generatePlan();
     setLocation('/plan');
@@ -168,17 +189,13 @@ export default function SystemSetup() {
             <CardContent className="pt-8 space-y-6">
               <h3 className="text-xl font-bold font-display border-b pb-2">Test Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label htmlFor="farmName">Farm Name <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
-                  <Input id="farmName" placeholder="e.g. Wiper Farm Road" {...register('farmName')} />
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor="irrigatorName">
-                    {irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}{' '}
-                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
-                  </Label>
-                  <Input id="irrigatorName" placeholder="e.g. Pivot 2 North" {...register('irrigatorName')} />
-                </div>
+                <FarmIrrigatorFields
+                  value={farmValue}
+                  onChange={setFarmValue}
+                  irrigatorType={irrigatorType}
+                  irrigatorLabel={irrigatorNameLabel[irrigatorType] ?? 'Irrigator Name / ID'}
+                  onIrrigatorPicked={applyIrrigatorDetails}
+                />
                 <div className="space-y-3">
                   <Label htmlFor="assessorName">Assessor Name <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
                   <Input id="assessorName" placeholder="e.g. John Smith" {...register('assessorName')} />

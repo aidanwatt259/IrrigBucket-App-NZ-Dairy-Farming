@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { SyncQueueItem, SyncReport } from '@workspace/sync';
+import type { FarmDirectorySnapshot, SyncQueueItem, SyncReport } from '@workspace/sync';
 import { calculateTestResults } from './calculations';
 import { GUEST_ACCOUNT } from './account';
 import type { SavedReport } from './savedReports';
@@ -21,6 +21,12 @@ export interface ReportOwner {
   ownerId: string;
 }
 
+/** One account's farms and irrigators (see `FarmDirectory`), keyed by account. */
+export interface StoredFarmDirectory {
+  scope: string;
+  snapshot: FarmDirectorySnapshot;
+}
+
 /**
  * Dexie database backing the offline-first SyncEngine for the web app.
  *
@@ -33,11 +39,13 @@ export interface ReportOwner {
  *                  field — `inFlight` is tracked in-memory by the engine — so
  *                  those are intentionally not persisted/indexed.)
  *  - `report_owners` PK `reportId`; index on `ownerId`. See {@link ReportOwner}.
+ *  - `farm_directory` PK `scope` (account). See {@link StoredFarmDirectory}.
  */
 export class IrrigBucketSyncDb extends Dexie {
   reports!: Table<StoredReport, string>;
   sync_queue!: Table<SyncQueueItem, string>;
   report_owners!: Table<ReportOwner, string>;
+  farm_directory!: Table<StoredFarmDirectory, string>;
 
   constructor() {
     super('irrigbucket_sync');
@@ -56,6 +64,7 @@ export class IrrigBucketSyncDb extends Dexie {
           reports.map((r) => ({ reportId: r.id, ownerId: r.userId ?? GUEST_ACCOUNT })),
         );
       });
+    this.version(3).stores({ farm_directory: 'scope' });
   }
 }
 

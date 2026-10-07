@@ -17,7 +17,7 @@ export default function OperationScreen() {
   // prev/next arrows follow on-screen order automatically.
   const inputRefs = useRef<Record<string, TextInput | null>>({});
   const orderedFields = useMemo<string[]>(() => {
-    const head = ['farmName', 'assessorName', 'irrigatorName'];
+    const head = ['assessorName'];
     const mid = irrigatorType === 'pivot'
       ? ['percentTimer', 'inletPressure', 'wettedWidth', 'cornerArm']
       : ['actualSpeed', 'inletPressure', 'speedTestTime', 'speedTestDistance'];
@@ -58,9 +58,12 @@ export default function OperationScreen() {
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.foreground, borderBottomColor: colors.border }]}>Farm & Assessor</Text>
             <View style={styles.fields}>
-              <FormField label="Farm Name" value={operationData.farmName || ''} onChangeText={set('farmName')} placeholder="e.g. Fernvale Farm" {...reg('farmName')} />
+              {(operationData.farmName || operationData.irrigatorName) ? (
+                <Text style={[styles.linkedNames, { color: colors.mutedForeground }]}>
+                  {[operationData.farmName, operationData.irrigatorName].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
               <FormField label="Assessor Name" value={operationData.assessorName || ''} onChangeText={set('assessorName')} placeholder="e.g. John Smith" {...reg('assessorName')} />
-              <FormField label="Irrigator Name / ID" value={operationData.irrigatorName || ''} onChangeText={set('irrigatorName')} placeholder="e.g. Pivot 1" {...reg('irrigatorName')} />
             </View>
           </View>
 
@@ -115,6 +118,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { padding: 20, gap: 16 },
   card: { borderRadius: 16, borderWidth: 1.5, padding: 20 },
+  linkedNames: { fontSize: 14, fontFamily: 'Inter_500Medium' },
   sectionTitle: { fontSize: 15, fontFamily: 'Outfit_700Bold', borderBottomWidth: 1, paddingBottom: 10, marginBottom: 16 },
   fields: { gap: 14 },
 });

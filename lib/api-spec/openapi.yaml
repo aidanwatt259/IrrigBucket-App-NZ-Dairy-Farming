@@ -14,6 +14,8 @@ tags:
     description: Browser and mobile authentication endpoints.
   - name: Reports
     description: Irrigation test report storage and retrieval.
+  - name: Farms
+    description: Farms and their saved irrigators.
   - name: Admin
     description: Admin-only endpoints.
   - name: HelpRequests
@@ -219,6 +221,110 @@ paths:
                 $ref: '#/components/schemas/ReportEnvelope'
         '404':
           description: Report not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /farms:
+    get:
+      tags: [Farms]
+      operationId: getMyFarms
+      summary: Get the farms (and their irrigators) the authenticated user can access
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Live farms and irrigators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmDirectoryEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Farms]
+      operationId: saveFarm
+      summary: Create or update a farm (Last-Write-Wins on clientUpdatedAt)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveFarmRequest'
+      responses:
+        '201':
+          description: The authoritative farm record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmEnvelope'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Not allowed to edit this farm.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /irrigators:
+    post:
+      tags: [Farms]
+      operationId: saveIrrigator
+      summary: Create or update a saved irrigator (Last-Write-Wins on clientUpdatedAt)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveIrrigatorRequest'
+      responses:
+        '201':
+          description: The authoritative irrigator record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IrrigatorEnvelope'
+        '400':
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Not allowed to edit this farm's irrigators.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: The irrigator's farm has not been saved yet.
           content:
             application/json:
               schema:
@@ -529,6 +635,13 @@ components:
           type: [string, 'null']
         duStatus:
           type: [string, 'null']
+        farmId:
+          type: [string, 'null']
+          description: >-
+            Farm the report belongs to. Only applied when the caller is a member
+            of that farm; omitting it keeps the report's existing farm link.
+        irrigatorId:
+          type: [string, 'null']
         reportData:
           type: object
           additionalProperties: true
@@ -551,6 +664,10 @@ components:
         duPercent:
           type: [string, 'null']
         duStatus:
+          type: [string, 'null']
+        farmId:
+          type: [string, 'null']
+        irrigatorId:
           type: [string, 'null']
         reportData:
           type: object
@@ -577,6 +694,138 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReportRecord'
+    SaveFarmRequest:
+      type: object
+      required: [id, clientUpdatedAt, name]
+      properties:
+        id:
+          type: string
+          description: Client-generated UUID; the upsert key.
+        clientUpdatedAt:
+          type: string
+          description: ISO-8601 time of the client's last local edit (Last-Write-Wins).
+        name:
+          type: string
+        region:
+          type: [string, 'null']
+        contactName:
+          type: [string, 'null']
+        contactEmail:
+          type: [string, 'null']
+        contactPhone:
+          type: [string, 'null']
+        notes:
+          type: [string, 'null']
+        deletedAt:
+          type: [string, 'null']
+          description: Set to tombstone (delete) the farm.
+    FarmRecord:
+      type: object
+      required: [id, name, role, createdAt, clientUpdatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        region:
+          type: [string, 'null']
+        contactName:
+          type: [string, 'null']
+        contactEmail:
+          type: [string, 'null']
+        contactPhone:
+          type: [string, 'null']
+        notes:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [owner, consultant, farmer]
+          description: The caller's role on this farm.
+        createdAt:
+          type: string
+        updatedAt:
+          type: [string, 'null']
+        clientUpdatedAt:
+          type: string
+        deletedAt:
+          type: [string, 'null']
+    FarmEnvelope:
+      type: object
+      required: [farm]
+      properties:
+        farm:
+          $ref: '#/components/schemas/FarmRecord'
+    SaveIrrigatorRequest:
+      type: object
+      required: [id, farmId, clientUpdatedAt, name, type]
+      properties:
+        id:
+          type: string
+          description: Client-generated UUID; the upsert key.
+        farmId:
+          type: string
+        clientUpdatedAt:
+          type: string
+          description: ISO-8601 time of the client's last local edit (Last-Write-Wins).
+        name:
+          type: string
+        type:
+          type: string
+          description: Irrigator type id (pivot, lateral, kline, gun, solid, boom).
+        details:
+          type: object
+          additionalProperties: true
+          description: Last-used system settings, used to prefill a re-test.
+        testIntervalMonths:
+          type: integer
+          minimum: 1
+          maximum: 120
+        deletedAt:
+          type: [string, 'null']
+          description: Set to tombstone (delete) the irrigator.
+    IrrigatorRecord:
+      type: object
+      required: [id, farmId, name, type, details, testIntervalMonths, createdAt, clientUpdatedAt]
+      properties:
+        id:
+          type: string
+        farmId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        testIntervalMonths:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: [string, 'null']
+        clientUpdatedAt:
+          type: string
+        deletedAt:
+          type: [string, 'null']
+    IrrigatorEnvelope:
+      type: object
+      required: [irrigator]
+      properties:
+        irrigator:
+          $ref: '#/components/schemas/IrrigatorRecord'
+    FarmDirectoryEnvelope:
+      type: object
+      required: [farms, irrigators]
+      properties:
+        farms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmRecord'
+        irrigators:
+          type: array
+          items:
+            $ref: '#/components/schemas/IrrigatorRecord'
     AdminReportRecord:
       type: object
       required: [id, createdAt, reportData]

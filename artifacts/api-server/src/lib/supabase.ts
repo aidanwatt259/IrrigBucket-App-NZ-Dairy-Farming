@@ -23,6 +23,8 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
+export type FarmRole = "owner" | "consultant" | "farmer";
+
 export type Database = {
   public: {
     Tables: {
@@ -37,6 +39,8 @@ export type Database = {
           report_data: unknown;
           du_percent: string | null;
           du_status: string | null;
+          farm_id: string | null;
+          irrigator_id: string | null;
           created_at: string;
           updated_at: string;
           client_updated_at: string | null;
@@ -44,14 +48,85 @@ export type Database = {
         };
         Insert: Omit<
           Database["public"]["Tables"]["reports"]["Row"],
-          "id" | "created_at" | "updated_at" | "client_updated_at" | "deleted_at"
+          | "id"
+          | "farm_id"
+          | "irrigator_id"
+          | "created_at"
+          | "updated_at"
+          | "client_updated_at"
+          | "deleted_at"
         > & {
           id?: string;
+          farm_id?: string | null;
+          irrigator_id?: string | null;
           updated_at?: string;
           client_updated_at?: string | null;
           deleted_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["reports"]["Row"]>;
+        Relationships: [];
+      };
+      farms: {
+        Row: {
+          id: string;
+          name: string;
+          region: string | null;
+          contact_name: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          notes: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          client_updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["farms"]["Row"],
+          "created_at" | "updated_at"
+        > & {
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["farms"]["Row"]>;
+        Relationships: [];
+      };
+      farm_members: {
+        Row: {
+          farm_id: string;
+          user_id: string;
+          role: FarmRole;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["farm_members"]["Row"],
+          "created_at"
+        > & { created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["farm_members"]["Row"]>;
+        Relationships: [];
+      };
+      irrigators: {
+        Row: {
+          id: string;
+          farm_id: string;
+          name: string;
+          type: string;
+          details: Record<string, unknown>;
+          test_interval_months: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          client_updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["irrigators"]["Row"],
+          "created_at" | "updated_at"
+        > & {
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["irrigators"]["Row"]>;
         Relationships: [];
       };
       help_requests: {

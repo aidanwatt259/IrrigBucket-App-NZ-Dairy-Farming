@@ -70,6 +70,13 @@ export interface SaveReportRequest {
   duPercent?: string | null;
   /** @nullable */
   duStatus?: string | null;
+  /**
+   * Farm the report belongs to. Only applied when the caller is a member of that farm; omitting it keeps the report's existing farm link.
+   * @nullable
+   */
+  farmId?: string | null;
+  /** @nullable */
+  irrigatorId?: string | null;
   reportData: SaveReportRequestReportData;
 }
 
@@ -91,6 +98,10 @@ export interface ReportRecord {
   duPercent?: string | null;
   /** @nullable */
   duStatus?: string | null;
+  /** @nullable */
+  farmId?: string | null;
+  /** @nullable */
+  irrigatorId?: string | null;
   reportData: ReportRecordReportData;
   createdAt: string;
   /** @nullable */
@@ -107,6 +118,122 @@ export interface ReportEnvelope {
 
 export interface ReportListEnvelope {
   reports: ReportRecord[];
+}
+
+export interface SaveFarmRequest {
+  /** Client-generated UUID; the upsert key. */
+  id: string;
+  /** ISO-8601 time of the client's last local edit (Last-Write-Wins). */
+  clientUpdatedAt: string;
+  name: string;
+  /** @nullable */
+  region?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /**
+   * Set to tombstone (delete) the farm.
+   * @nullable
+   */
+  deletedAt?: string | null;
+}
+
+/**
+ * The caller's role on this farm.
+ */
+export type FarmRecordRole =
+  (typeof FarmRecordRole)[keyof typeof FarmRecordRole];
+
+export const FarmRecordRole = {
+  owner: "owner",
+  consultant: "consultant",
+  farmer: "farmer",
+} as const;
+
+export interface FarmRecord {
+  id: string;
+  name: string;
+  /** @nullable */
+  region?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** The caller's role on this farm. */
+  role: FarmRecordRole;
+  createdAt: string;
+  /** @nullable */
+  updatedAt?: string | null;
+  clientUpdatedAt: string;
+  /** @nullable */
+  deletedAt?: string | null;
+}
+
+export interface FarmEnvelope {
+  farm: FarmRecord;
+}
+
+/**
+ * Last-used system settings, used to prefill a re-test.
+ */
+export type SaveIrrigatorRequestDetails = { [key: string]: unknown };
+
+export interface SaveIrrigatorRequest {
+  /** Client-generated UUID; the upsert key. */
+  id: string;
+  farmId: string;
+  /** ISO-8601 time of the client's last local edit (Last-Write-Wins). */
+  clientUpdatedAt: string;
+  name: string;
+  /** Irrigator type id (pivot, lateral, kline, gun, solid, boom). */
+  type: string;
+  /** Last-used system settings, used to prefill a re-test. */
+  details?: SaveIrrigatorRequestDetails;
+  /**
+   * @minimum 1
+   * @maximum 120
+   */
+  testIntervalMonths?: number;
+  /**
+   * Set to tombstone (delete) the irrigator.
+   * @nullable
+   */
+  deletedAt?: string | null;
+}
+
+export type IrrigatorRecordDetails = { [key: string]: unknown };
+
+export interface IrrigatorRecord {
+  id: string;
+  farmId: string;
+  name: string;
+  type: string;
+  details: IrrigatorRecordDetails;
+  testIntervalMonths: number;
+  createdAt: string;
+  /** @nullable */
+  updatedAt?: string | null;
+  clientUpdatedAt: string;
+  /** @nullable */
+  deletedAt?: string | null;
+}
+
+export interface IrrigatorEnvelope {
+  irrigator: IrrigatorRecord;
+}
+
+export interface FarmDirectoryEnvelope {
+  farms: FarmRecord[];
+  irrigators: IrrigatorRecord[];
 }
 
 export type AdminReportRecordReportData = { [key: string]: unknown };

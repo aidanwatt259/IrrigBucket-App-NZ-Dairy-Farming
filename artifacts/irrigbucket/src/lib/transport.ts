@@ -67,6 +67,8 @@ export const transport: Transport<SavedReport> = {
       testDate: report.testDate,
       duPercent: report.duPercent,
       duStatus: report.duStatus,
+      farmId: report.reportData.operationData?.farmId,
+      irrigatorId: report.reportData.operationData?.irrigatorId,
       reportData: report.reportData as unknown as SaveReportRequestReportData,
     };
     const envelope = await apiSaveReport(body, { credentials: 'include' });

@@ -40,6 +40,9 @@ export interface OperationData {
   assessorName?: string;
   farmName?: string;
   irrigatorName?: string;
+  /** Saved farm/irrigator this test belongs to (see FarmDirectory). */
+  farmId?: string;
+  irrigatorId?: string;
   actualSpeed?: string;
   inletPressure?: string;
   speedTestTime?: string;

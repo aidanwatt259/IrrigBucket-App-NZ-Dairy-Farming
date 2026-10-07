@@ -2,7 +2,8 @@ import {
   SystemParams, Plan, SectionDefinition, PivotSection, OperationData,
 } from './calculations';
 import { db, getReportOwnerId, savedReportToSyncReport } from './syncDb';
-import { syncEngine } from './syncEngine';
+import { requestFarmSync, syncEngine } from './syncEngine';
+import { farmDirectory } from './farmDirectory';
 import { GUEST_ACCOUNT, getCurrentAccount } from './account';
 
 export interface SavedReport {
@@ -66,6 +67,13 @@ export async function saveReport(
   // Owner first: the enqueue below can start a push immediately.
   await db.report_owners.put({ reportId: report.id, ownerId: await getCurrentAccount() });
   await syncEngine.enqueueUpsert(savedReportToSyncReport(report));
+
+  // Remember the settings this irrigator was tested with, to prefill a re-test.
+  const irrigatorId = report.operationData?.irrigatorId;
+  if (irrigatorId && farmDirectory.getIrrigator(irrigatorId)) {
+    await farmDirectory.updateIrrigator(irrigatorId, { details: { ...report.systemParams } });
+    void requestFarmSync();
+  }
   return report;
 }
 
