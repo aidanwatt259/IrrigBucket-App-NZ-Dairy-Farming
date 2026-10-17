@@ -3,19 +3,29 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { createContext, SourceTextModule, SyntheticModule } from "node:vm";
 import * as apiErrors from "../../api-client-react/src/custom-fetch.ts";
-import type { SyncStatus, Transport } from "../src/types.ts";
+import { SyncEngine } from "../src/engine.ts";
+import { FakeTransport, InMemoryStorageAdapter } from "../src/testHelpers.ts";
+import type { SyncEngineOptions, SyncStatus, Transport } from "../src/types.ts";
 
 // Execute the complete production wiring module in a fresh realm per test.
-// Only platform/storage dependencies and the underlying engine are replaced;
-// retry loops, guards, entry points, and error classifiers remain production code.
-export async function clientHarness(platform: "web" | "mobile") {
+// Default mode isolates wiring with a stub engine. Integration mode keeps the
+// real engine and replaces only native storage/connectivity and the server.
+export async function clientHarness(
+  platform: "web" | "mobile",
+  options: { integration?: boolean } = {},
+) {
+  assert.ok(!options.integration || platform === "mobile", "Integration mode supports mobile only");
   let now = 0;
+  let sequence = 0;
   let calls = 0;
   let drains = 0;
   let result: () => Promise<void> = async () => {};
   let writeResult: () => Promise<void> = async () => {};
   let onStatus: (status: SyncStatus) => void = () => {};
   let transport: Transport;
+  let realEngine: SyncEngine | undefined;
+  const storage = new InMemoryStorageAdapter();
+  const server = new FakeTransport();
   const timers: { at: number; run: () => void }[] = [];
   const events = new Map<string, () => void>();
   let netListener: (state: { isConnected: boolean }) => void = () => {};
@@ -27,9 +37,23 @@ export async function clientHarness(platform: "web" | "mobile") {
   };
   const imports: Record<string, Record<string, unknown>> = {
     "@workspace/sync": { SyncEngine: class {
-      constructor(options: { onStatus: typeof onStatus; transport: Transport }) {
-        onStatus = options.onStatus;
-        transport = options.transport;
+      constructor(engineOptions: SyncEngineOptions) {
+        onStatus = engineOptions.onStatus ?? (() => {});
+        transport = engineOptions.transport;
+        if (options.integration) {
+          realEngine = new class extends SyncEngine {
+            override async drain() {
+              drains++;
+              await super.drain();
+            }
+          }({
+            ...engineOptions,
+            now: () => now,
+            rand: () => 0,
+            genId: () => `enqueue-${++sequence}`,
+          });
+          return realEngine;
+        }
         return engine;
       }
     } },
@@ -64,12 +88,21 @@ export async function clientHarness(platform: "web" | "mobile") {
     "./transport": {
       transport: {},
       createTransport: () => ({
-        pushReport: async () => { await writeResult(); return null; },
-        deleteReport: async () => { await writeResult(); return null; },
+        pushReport: async (report: Parameters<Transport["pushReport"]>[0]) => {
+          await writeResult();
+          return options.integration ? server.pushReport(report) : null;
+        },
+        deleteReport: async (report: Parameters<Transport["deleteReport"]>[0]) => {
+          await writeResult();
+          return options.integration ? server.deleteReport(report) : null;
+        },
+        pullReports: async () => { calls++; await result(); return server.pullReports(); },
       }),
     },
     "./sqliteAdapter": {
-      createSqliteAdapter: async () => ({ rekeyAnonymousIds: async () => {} }),
+      createSqliteAdapter: async () => Object.assign(storage, {
+        rekeyAnonymousIds: async () => {},
+      }),
     },
     "@react-native-async-storage/async-storage": {
       default: { getItem: async () => "1" },
@@ -113,6 +146,8 @@ export async function clientHarness(platform: "web" | "mobile") {
     disableSync(): Promise<void>;
     getStatus(): SyncStatus;
     subscribeStatus(listener: (status: SyncStatus) => void): () => void;
+    saveReport(saved: Record<string, unknown>): Promise<void>;
+    deleteReport(id: string): Promise<void>;
   };
   // A host event-loop turn drains all guest async continuations without sleeps.
   const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -120,13 +155,35 @@ export async function clientHarness(platform: "web" | "mobile") {
     get calls() { return calls; },
     get drains() { return drains; },
     get pendingTimers() { return timers.length; },
+    storage,
+    server,
+    async drain() {
+      assert.ok(realEngine, "Requires integration mode");
+      await realEngine.drain();
+    },
+    async saveReport(id: string) {
+      assert.ok(realEngine, "Requires integration mode");
+      await api.saveReport({
+        id, savedAt: new Date(now).toISOString(), volumes: [],
+        systemParams: {}, sections: [],
+      });
+      await settle();
+    },
+    async deleteReport(id: string) {
+      assert.ok(realEngine, "Requires integration mode");
+      await api.deleteReport(id);
+      await settle();
+    },
     respond(fn: typeof result) { result = fn; },
     respondToWrite(fn: typeof writeResult) { writeResult = fn; },
     get status() { return api.getStatus(); },
     subscribeStatus(listener: (status: SyncStatus) => void) {
       return api.subscribeStatus(listener);
     },
-    emitStatus(status: SyncStatus) { onStatus(status); },
+    emitStatus(status: SyncStatus) {
+      assert.ok(!options.integration, "Integration statuses must come from the real engine");
+      onStatus(status);
+    },
     async write(op: "pushReport" | "deleteReport") {
       // The transport stub ignores the record; exercise the production wrapper.
       await transport[op]({} as Parameters<Transport["pushReport"]>[0]);
