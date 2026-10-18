@@ -51,6 +51,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
+  /auth/account-type:
+    put:
+      tags: [Auth]
+      operationId: setAccountType
+      summary: Choose whether the signed-in user is a farmer or a consultant
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetAccountTypeRequest'
+      responses:
+        '200':
+          description: Account type saved; returns the updated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+        '400':
+          description: Invalid account type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /login:
     get:
       tags: [Auth]
@@ -562,6 +595,18 @@ components:
           type: [string, 'null']
         profileImageUrl:
           type: [string, 'null']
+        accountType:
+          $ref: '#/components/schemas/AccountType'
+    AccountType:
+      type: string
+      enum: [farmer, consultant]
+      description: Farmers test their own farm; consultants test farms for clients. Defaults to farmer.
+    SetAccountTypeRequest:
+      type: object
+      required: [accountType]
+      properties:
+        accountType:
+          $ref: '#/components/schemas/AccountType'
     AuthUserEnvelope:
       type: object
       required: [user]

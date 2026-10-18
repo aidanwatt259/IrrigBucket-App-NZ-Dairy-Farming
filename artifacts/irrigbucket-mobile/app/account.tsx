@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { SyncStatus } from '@workspace/sync';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, type AccountType } from '@/context/AuthContext';
 import { useColors } from '@/hooks/useColors';
 import { getStatus, subscribeStatus } from '@/lib/sync/syncEngine';
 
@@ -25,6 +25,11 @@ function useSyncStatus(): SyncStatus {
   useEffect(() => subscribeStatus(setStatus), []);
   return status;
 }
+
+const ACCOUNT_TYPE_OPTIONS: { value: AccountType; title: string; description: string }[] = [
+  { value: 'farmer', title: 'Farmer', description: 'I test my own farm' },
+  { value: 'consultant', title: 'Consultant', description: 'I test farms for clients' },
+];
 
 function syncSummary(status: SyncStatus): { icon: keyof typeof Feather.glyphMap; text: string } {
   if (status.state === 'offline') {
@@ -54,8 +59,24 @@ function syncSummary(status: SyncStatus): { icon: keyof typeof Feather.glyphMap;
 export default function AccountScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { status, user, busy, error, signIn, signOut, deleteAccount, clearError } =
-    useAuth();
+  const {
+    status, user, accountType, busy, error, signIn, signOut, deleteAccount, setAccountType, clearError,
+  } = useAuth();
+  const [accountTypeSaving, setAccountTypeSaving] = useState<AccountType | null>(null);
+  const [accountTypeError, setAccountTypeError] = useState(false);
+
+  const handleAccountType = async (next: AccountType) => {
+    if (next === accountType || accountTypeSaving) return;
+    setAccountTypeSaving(next);
+    setAccountTypeError(false);
+    try {
+      await setAccountType(next);
+    } catch {
+      setAccountTypeError(true);
+    } finally {
+      setAccountTypeSaving(null);
+    }
+  };
   const sync = useSyncStatus();
 
   const topPad = Platform.OS === 'web' ? 24 : insets.top;
@@ -134,6 +155,41 @@ export default function AccountScreen() {
                 <Text style={[styles.email, { color: colors.mutedForeground }]}>
                   {user?.email ?? 'Signed in'}
                 </Text>
+              </View>
+
+              <View style={[styles.typeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.typeLabel, { color: colors.foreground }]}>Account type</Text>
+                <View style={styles.typeRow}>
+                  {ACCOUNT_TYPE_OPTIONS.map((option) => {
+                    const selected = (accountTypeSaving ?? accountType) === option.value;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        onPress={() => void handleAccountType(option.value)}
+                        disabled={!!accountTypeSaving}
+                        activeOpacity={0.8}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        testID={`account-type-${option.value}`}
+                        style={[
+                          styles.typeOption,
+                          {
+                            backgroundColor: selected ? colors.primary + '0D' : colors.background,
+                            borderColor: selected ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.typeTitle, { color: colors.foreground }]}>{option.title}</Text>
+                        <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>{option.description}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {accountTypeError && (
+                  <Text style={[styles.typeError, { color: colors.destructive }]}>
+                    Couldn{'\u2019'}t change account type. Check your connection and try again.
+                  </Text>
+                )}
               </View>
 
               <View style={[styles.syncRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -358,6 +414,14 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 18, fontFamily: 'Outfit_700Bold', marginBottom: 2, letterSpacing: -0.2 },
   email: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+
+  typeCard: { borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 14, gap: 10 },
+  typeLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  typeRow: { flexDirection: 'row', gap: 10 },
+  typeOption: { flex: 1, borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
+  typeTitle: { fontSize: 15, fontFamily: 'Outfit_700Bold' },
+  typeDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  typeError: { fontSize: 12, fontFamily: 'Inter_500Medium' },
 
   syncRow: {
     flexDirection: 'row',

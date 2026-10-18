@@ -1,5 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { getCurrentAuthUser } from '@workspace/api-client-react';
+import {
+  getCurrentAuthUser,
+  setAccountType as apiSetAccountType,
+  type AccountType,
+  type AuthUser,
+} from '@workspace/api-client-react';
 import React, {
   createContext,
   useCallback,
@@ -29,20 +35,49 @@ import {
 
 type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
+export type { AccountType };
+
 export interface AuthUserInfo {
   email: string | null;
   firstName?: string | null;
   lastName?: string | null;
 }
 
+/** Last known account type, so the app keeps the right mode when it starts offline. */
+const ACCOUNT_TYPE_KEY = 'irrigbucket_account_type';
+
+async function loadCachedAccountType(): Promise<AccountType | null> {
+  const raw = await AsyncStorage.getItem(ACCOUNT_TYPE_KEY).catch(() => null);
+  return raw === 'farmer' || raw === 'consultant' ? raw : null;
+}
+
+function cacheAccountType(accountType: AccountType | null): Promise<void> {
+  return (
+    accountType
+      ? AsyncStorage.setItem(ACCOUNT_TYPE_KEY, accountType)
+      : AsyncStorage.removeItem(ACCOUNT_TYPE_KEY)
+  ).catch(() => {});
+}
+
+function toUserInfo(user: AuthUser, fallbackEmail: string | null = null): AuthUserInfo {
+  return {
+    email: user.email ?? fallbackEmail,
+    firstName: user.firstName,
+    lastName: user.lastName,
+  };
+}
+
 interface AuthContextValue {
   status: AuthStatus;
   user: AuthUserInfo | null;
+  /** Farmer or consultant; farmer until the server says otherwise. */
+  accountType: AccountType;
   busy: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  setAccountType: (accountType: AccountType) => Promise<void>;
   clearError: () => void;
 }
 
@@ -51,6 +86,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<AuthUserInfo | null>(null);
+  const [accountType, setAccountTypeState] = useState<AccountType>('farmer');
+
+  const applyAccountType = useCallback((next: AccountType | null | undefined) => {
+    setAccountTypeState(next ?? 'farmer');
+    void cacheAccountType(next ?? null);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,11 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // only way this throws is a genuine transport/connectivity failure.
         const me = await getCurrentAuthUser();
         if (me?.user) {
-          setUser({
-            email: me.user.email ?? null,
-            firstName: me.user.firstName,
-            lastName: me.user.lastName,
-          });
+          setUser(toUserInfo(me.user));
+          applyAccountType(me.user.accountType);
           setStatus('signedIn');
           await enableSync();
         } else {
@@ -94,12 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (net.isConnected) {
           setStatus('signedOut');
         } else {
+          const cached = await loadCachedAccountType();
+          if (cached) setAccountTypeState(cached);
           setStatus('signedIn');
           await enableSync();
         }
       }
     })();
-  }, []);
+  }, [applyAccountType]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setBusy(true);
@@ -117,11 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await getCurrentAuthUser();
         if (me?.user) {
-          info = {
-            email: me.user.email ?? trimmed,
-            firstName: me.user.firstName,
-            lastName: me.user.lastName,
-          };
+          info = toUserInfo(me.user, trimmed);
+          applyAccountType(me.user.accountType);
         }
       } catch {
         // Display falls back to the entered email if the lookup fails.
@@ -135,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [applyAccountType]);
 
   const signOut = useCallback(async () => {
     setBusy(true);
@@ -148,10 +185,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // late completion can't mutate the outbox after we've gone local-only.
       await clearStoredToken();
       setUser(null);
+      applyAccountType(null);
       setStatus('signedOut');
       setBusy(false);
     }
-  }, []);
+  }, [applyAccountType]);
 
   const deleteAccount = useCallback(async () => {
     const sid = getStoredToken();
@@ -172,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await purgeAllLocalData();
       await clearStoredToken();
       setUser(null);
+      applyAccountType(null);
       setStatus('signedOut');
     } catch (e) {
       if (serverDeleted) {
@@ -181,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // as on sign-out; a reinstall clears them).
         await clearStoredToken().catch(() => {});
         setUser(null);
+        applyAccountType(null);
         setStatus('signedOut');
         setError(
           'Your account was deleted, but clearing local data failed. Reinstall the app to remove any reports left on this device.',
@@ -195,13 +235,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [applyAccountType]);
+
+  const setAccountType = useCallback(async (next: AccountType) => {
+    setError(null);
+    const { user: updated } = await apiSetAccountType({ accountType: next });
+    applyAccountType(updated?.accountType ?? next);
+  }, [applyAccountType]);
 
   const clearError = useCallback(() => setError(null), []);
 
   return (
     <AuthContext.Provider
-      value={{ status, user, busy, error, signIn, signOut, deleteAccount, clearError }}
+      value={{
+        status,
+        user,
+        accountType,
+        busy,
+        error,
+        signIn,
+        signOut,
+        deleteAccount,
+        setAccountType,
+        clearError,
+      }}
     >
       {children}
     </AuthContext.Provider>

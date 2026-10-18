@@ -11,6 +11,8 @@ import {
 } from '@/lib/savedReports';
 import { prepareForLogout } from '@/lib/account';
 import { useAuth } from '@workspace/replit-auth-web';
+import { AccountTypeChoice } from '@/components/account/AccountTypeChoice';
+import { saveAccountType, type AccountType } from '@/lib/accountType';
 
 interface ServerReport {
   id: string;
@@ -49,6 +51,26 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { user, isLoading, isAuthenticated, login, logout } = useAuth();
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [accountTypeSaving, setAccountTypeSaving] = useState(false);
+  const [accountTypeError, setAccountTypeError] = useState(false);
+  const shownAccountType = accountType ?? user?.accountType ?? 'farmer';
+
+  async function changeAccountType(next: AccountType) {
+    if (next === shownAccountType || accountTypeSaving) return;
+    const previous = shownAccountType;
+    setAccountType(next);
+    setAccountTypeSaving(true);
+    setAccountTypeError(false);
+    try {
+      setAccountType(await saveAccountType(next));
+    } catch {
+      setAccountType(previous);
+      setAccountTypeError(true);
+    } finally {
+      setAccountTypeSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -476,6 +498,7 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
           {isLoading ? (
             <div className="h-9 bg-muted animate-pulse rounded-md" />
           ) : isAuthenticated ? (
+            <>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {user?.profileImageUrl ? (
@@ -502,6 +525,19 @@ export function SideMenu({ open, onClose }: SideMenuProps) {
                 Log out
               </Button>
             </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Account type</p>
+              <AccountTypeChoice
+                compact
+                value={shownAccountType}
+                onChange={(next) => void changeAccountType(next)}
+                disabled={accountTypeSaving}
+              />
+              {accountTypeError && (
+                <p className="text-xs text-destructive">Couldn't change account type. Check your connection and try again.</p>
+              )}
+            </div>
+            </>
           ) : (
             <Button variant="outline" className="w-full" onClick={() => login()}>
               <LogIn className="w-4 h-4 mr-2" />

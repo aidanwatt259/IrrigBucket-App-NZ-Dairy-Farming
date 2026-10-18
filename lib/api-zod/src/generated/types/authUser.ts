@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AccountType } from "./accountType";
 
 export interface AuthUser {
   id: string;
@@ -16,4 +17,5 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  accountType?: AccountType;
 }

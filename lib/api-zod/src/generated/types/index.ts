@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./accountType";
 export * from "./adminReportListEnvelope";
 export * from "./adminReportRecord";
 export * from "./adminReportRecordReportData";
@@ -43,3 +44,4 @@ export * from "./saveIrrigatorRequest";
 export * from "./saveIrrigatorRequestDetails";
 export * from "./saveReportRequest";
 export * from "./saveReportRequestReportData";
+export * from "./setAccountTypeRequest";
