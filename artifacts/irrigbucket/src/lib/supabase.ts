@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { takeSignupAccountType } from "./accountType";
 
 let _client: SupabaseClient | null = null;
 
@@ -37,7 +38,7 @@ export async function createServerSession(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ access_token, refresh_token }),
+    body: JSON.stringify({ access_token, refresh_token, accountType: takeSignupAccountType() }),
   });
   if (!res.ok) {
     throw new Error("Failed to create server session");

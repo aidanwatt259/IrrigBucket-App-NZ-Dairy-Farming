@@ -3,6 +3,8 @@ import { useLocation } from 'wouter';
 import { Droplet, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getSupabaseClient } from '@/lib/supabase';
+import { AccountTypeChoice } from '@/components/account/AccountTypeChoice';
+import { rememberSignupAccountType, type AccountType } from '@/lib/accountType';
 
 function GoogleIcon() {
   return (
@@ -25,10 +27,12 @@ export default function Signup() {
   const [oauthLoading, setOauthLoading] = useState<'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [accountType, setAccountType] = useState<AccountType>('farmer');
 
   async function handleOAuth(provider: 'google') {
     setOauthLoading(provider);
     setError(null);
+    rememberSignupAccountType(accountType);
     try {
       const supabase = await getSupabaseClient();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -63,12 +67,14 @@ export default function Signup() {
 
     try {
       const supabase = await getSupabaseClient();
+      rememberSignupAccountType(accountType);
 
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth-callback`,
+          data: { account_type: accountType },
         },
       });
 
@@ -139,6 +145,11 @@ export default function Signup() {
               {error}
             </div>
           )}
+
+          <div className="mb-5">
+            <p className="text-sm font-medium text-foreground mb-2">I'm a…</p>
+            <AccountTypeChoice value={accountType} onChange={setAccountType} />
+          </div>
 
           {/* Social auth */}
           <div className="space-y-2.5 mb-5">

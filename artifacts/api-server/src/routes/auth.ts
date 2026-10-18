@@ -1,5 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { GetCurrentAuthUserResponse } from "@workspace/api-zod";
+import {
+  GetCurrentAuthUserResponse,
+  SetAccountTypeResponse,
+  type AccountType,
+} from "@workspace/api-zod";
 import { db, usersTable, sessionsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { supabase } from "../lib/supabase";
@@ -12,6 +16,11 @@ import {
   type SessionData,
 } from "../lib/auth";
 import { isAdmin } from "./reports.js";
+import {
+  DEFAULT_ACCOUNT_TYPE,
+  parseAccountType,
+  signupAccountType,
+} from "../lib/accountType";
 
 const router: IRouter = Router();
 
@@ -31,6 +40,8 @@ async function upsertUser(userData: {
   firstName?: string | null;
   lastName?: string | null;
   profileImageUrl?: string | null;
+  /** Only used when the user row is first created. */
+  accountType: AccountType;
 }) {
   const [user] = await db
     .insert(usersTable)
@@ -40,6 +51,7 @@ async function upsertUser(userData: {
       firstName: userData.firstName ?? null,
       lastName: userData.lastName ?? null,
       profileImageUrl: userData.profileImageUrl ?? null,
+      accountType: userData.accountType,
     })
     .onConflictDoUpdate({
       target: usersTable.id,
@@ -69,7 +81,11 @@ router.get("/auth/user", (req: Request, res: Response) => {
   res.json(
     GetCurrentAuthUserResponse.parse({
       user: req.isAuthenticated()
-        ? { ...req.user, isAdmin: isAdmin(req) }
+        ? {
+            ...req.user,
+            accountType: req.user.accountType ?? DEFAULT_ACCOUNT_TYPE,
+            isAdmin: isAdmin(req),
+          }
         : null,
     }),
   );
@@ -108,6 +124,7 @@ router.post("/auth/supabase-session", async (req: Request, res: Response) => {
     firstName,
     lastName,
     profileImageUrl: (meta.avatar_url as string | undefined) ?? null,
+    accountType: signupAccountType(req.body?.accountType, meta.account_type),
   });
 
   const sessionData: SessionData = {
@@ -117,6 +134,7 @@ router.post("/auth/supabase-session", async (req: Request, res: Response) => {
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
       profileImageUrl: dbUser.profileImageUrl,
+      accountType: parseAccountType(dbUser.accountType) ?? DEFAULT_ACCOUNT_TYPE,
     },
     access_token,
     refresh_token: refresh_token ?? undefined,
@@ -133,6 +151,35 @@ router.post("/auth/supabase-session", async (req: Request, res: Response) => {
   const returnSid = req.body?.returnSid === true;
   res.setHeader("Cache-Control", "no-store");
   res.json(returnSid ? { success: true, sid } : { success: true });
+});
+
+// Switch the signed-in user between farmer and consultant. Every session of the
+// user is updated too, since /auth/user answers from the session alone.
+router.put("/auth/account-type", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const accountType = parseAccountType(req.body?.accountType);
+  if (!accountType) {
+    res.status(400).json({ error: "accountType must be farmer or consultant" });
+    return;
+  }
+
+  const userId = req.user.id;
+  await db.update(usersTable).set({ accountType }).where(eq(usersTable.id, userId));
+  await db
+    .update(sessionsTable)
+    .set({
+      sess: sql`jsonb_set(${sessionsTable.sess}, '{user,accountType}', to_jsonb(${accountType}::text))`,
+    })
+    .where(sql`${sessionsTable.sess} -> 'user' ->> 'id' = ${userId}`);
+
+  res.json(
+    SetAccountTypeResponse.parse({
+      user: { ...req.user, accountType, isAdmin: isAdmin(req) },
+    }),
+  );
 });
 
 // Clear the server session. The frontend handles Supabase signOut separately.
@@ -163,7 +210,6 @@ router.delete("/auth/account", async (req: Request, res: Response) => {
       return;
     }
   }
-
   // Farms cascade to their members and irrigators. Tolerate the farm tables
   // not existing yet (supabase-farms.sql is applied by hand).
   for (const [table, query] of [

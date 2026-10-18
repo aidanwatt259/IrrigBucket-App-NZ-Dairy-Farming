@@ -40,6 +40,7 @@ import type {
   SaveFarmRequest,
   SaveIrrigatorRequest,
   SaveReportRequest,
+  SetAccountTypeRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -201,6 +202,92 @@ export function useGetCurrentAuthUser<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Choose whether the signed-in user is a farmer or a consultant
+ */
+export const getSetAccountTypeUrl = () => {
+  return `/api/auth/account-type`;
+};
+
+export const setAccountType = async (
+  setAccountTypeRequest: SetAccountTypeRequest,
+  options?: RequestInit,
+): Promise<AuthUserEnvelope> => {
+  return customFetch<AuthUserEnvelope>(getSetAccountTypeUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setAccountTypeRequest),
+  });
+};
+
+export const getSetAccountTypeMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAccountType>>,
+    TError,
+    { data: BodyType<SetAccountTypeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setAccountType>>,
+  TError,
+  { data: BodyType<SetAccountTypeRequest> },
+  TContext
+> => {
+  const mutationKey = ["setAccountType"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setAccountType>>,
+    { data: BodyType<SetAccountTypeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setAccountType(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetAccountTypeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAccountType>>
+>;
+export type SetAccountTypeMutationBody = BodyType<SetAccountTypeRequest>;
+export type SetAccountTypeMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Choose whether the signed-in user is a farmer or a consultant
+ */
+export const useSetAccountType = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setAccountType>>,
+    TError,
+    { data: BodyType<SetAccountTypeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setAccountType>>,
+  TError,
+  { data: BodyType<SetAccountTypeRequest> },
+  TContext
+> => {
+  return useMutation(getSetAccountTypeMutationOptions(options));
+};
 
 /**
  * @summary Start the browser OIDC login flow

@@ -33,6 +33,49 @@ export const GetCurrentAuthUserResponse = zod.object({
       firstName: zod.string().nullable(),
       lastName: zod.string().nullable(),
       profileImageUrl: zod.string().nullable(),
+      accountType: zod
+        .enum(["farmer", "consultant"])
+        .optional()
+        .describe(
+          "Farmers test their own farm; consultants test farms for clients. Defaults to farmer.",
+        ),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Choose whether the signed-in user is a farmer or a consultant
+ */
+export const SetAccountTypeHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const SetAccountTypeBody = zod.object({
+  accountType: zod
+    .enum(["farmer", "consultant"])
+    .describe(
+      "Farmers test their own farm; consultants test farms for clients. Defaults to farmer.",
+    ),
+});
+
+export const SetAccountTypeResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().email().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+      accountType: zod
+        .enum(["farmer", "consultant"])
+        .optional()
+        .describe(
+          "Farmers test their own farm; consultants test farms for clients. Defaults to farmer.",
+        ),
     }),
     zod.null(),
   ]),

@@ -9,6 +9,16 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * Farmers test their own farm; consultants test farms for clients. Defaults to farmer.
+ */
+export type AccountType = (typeof AccountType)[keyof typeof AccountType];
+
+export const AccountType = {
+  farmer: "farmer",
+  consultant: "consultant",
+} as const;
+
 export interface AuthUser {
   id: string;
   /** @nullable */
@@ -19,6 +29,11 @@ export interface AuthUser {
   lastName: string | null;
   /** @nullable */
   profileImageUrl: string | null;
+  accountType?: AccountType;
+}
+
+export interface SetAccountTypeRequest {
+  accountType: AccountType;
 }
 
 export interface AuthUserEnvelope {
