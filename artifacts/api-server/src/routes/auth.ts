@@ -164,6 +164,20 @@ router.delete("/auth/account", async (req: Request, res: Response) => {
     }
   }
 
+  // Farms cascade to their members and irrigators. Tolerate the farm tables
+  // not existing yet (supabase-farms.sql is applied by hand).
+  for (const [table, query] of [
+    ["farms", () => supabase.from("farms").delete().eq("created_by", userId)],
+    ["farm_members", () => supabase.from("farm_members").delete().eq("user_id", userId)],
+  ] as const) {
+    const { error } = await query();
+    if (error && error.code !== "42P01" && error.code !== "PGRST205") {
+      console.error(`Failed to delete ${table} during account deletion:`, error);
+      res.status(500).json({ error: "Failed to delete account data" });
+      return;
+    }
+  }
+
   // 2. Remove the local user mirror and EVERY session for this user (all
   //    devices), so no stale sid can authenticate as the deleted account.
   await db.delete(usersTable).where(eq(usersTable.id, userId));
