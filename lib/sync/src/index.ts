@@ -57,6 +57,7 @@ export {
 export type {
   DueState,
   DuStatus,
+  FarmSummary,
   IrrigatorStatus,
   TestSummary,
 } from "./farmStatus.js";
@@ -66,9 +67,11 @@ export {
   addMonths,
   daysBetween,
   describeDue,
+  describeFarm,
   formatDate,
   irrigatorStatus,
   latestTest,
   retestIntervalMonths,
+  summarizeFarm,
   todayString,
 } from "./farmStatus.js";

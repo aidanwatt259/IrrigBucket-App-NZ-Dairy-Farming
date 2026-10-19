@@ -140,3 +140,47 @@ export function todayString(now: Date = new Date()): string {
   const d = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+/** A consultant's at-a-glance view of one farm. */
+export interface FarmSummary {
+  irrigatorCount: number;
+  overdue: number;
+  dueSoon: number;
+  neverTested: number;
+  /** `YYYY-MM-DD` of the most recent test at the farm, or null. */
+  lastTestDate: string | null;
+}
+
+export function summarizeFarm(
+  irrigators: { id: string; testIntervalMonths: number }[],
+  tests: TestSummary[],
+  today: string,
+): FarmSummary {
+  const summary: FarmSummary = {
+    irrigatorCount: irrigators.length,
+    overdue: 0,
+    dueSoon: 0,
+    neverTested: 0,
+    lastTestDate: null,
+  };
+  for (const irrigator of irrigators) {
+    const status = irrigatorStatus(irrigator, tests, today);
+    if (status.state === "overdue") summary.overdue += 1;
+    else if (status.state === "due-soon") summary.dueSoon += 1;
+    else if (status.state === "never") summary.neverTested += 1;
+    const last = status.lastTest?.testDate ?? null;
+    if (last && (!summary.lastTestDate || last > summary.lastTestDate)) summary.lastTestDate = last;
+  }
+  return summary;
+}
+
+/** "3 overdue · 1 due soon", or "All up to date" / "Not tested yet". */
+export function describeFarm(summary: FarmSummary): string {
+  const parts: string[] = [];
+  if (summary.overdue) parts.push(`${summary.overdue} overdue`);
+  if (summary.dueSoon) parts.push(`${summary.dueSoon} due soon`);
+  if (summary.neverTested) parts.push(`${summary.neverTested} not tested yet`);
+  if (parts.length) return parts.join(" · ");
+  if (summary.irrigatorCount === 0) return "No irrigators yet";
+  return "All up to date";
+}

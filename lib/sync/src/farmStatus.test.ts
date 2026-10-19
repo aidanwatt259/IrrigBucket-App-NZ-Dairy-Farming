@@ -5,10 +5,12 @@ import {
   addMonths,
   daysBetween,
   describeDue,
+  describeFarm,
   formatDate,
   irrigatorStatus,
   latestTest,
   retestIntervalMonths,
+  summarizeFarm,
   type TestSummary,
 } from "./farmStatus";
 
@@ -82,4 +84,23 @@ test("describeDue wording", () => {
   assert.equal(describeDue(irrigatorStatus(irrigator, tests, "2027-01-16")), "Overdue by 1 day");
   assert.equal(describeDue(irrigatorStatus(irrigator, tests, "2027-02-14")), "Overdue by 30 days");
   assert.equal(formatDate("2027-03-05"), "5 Mar 2027");
+});
+
+test("summarizeFarm counts states and finds the latest test", () => {
+  const irrigators = [
+    { id: "a", testIntervalMonths: 12 },
+    { id: "b", testIntervalMonths: 12 },
+    { id: "c", testIntervalMonths: 12 },
+    { id: "d", testIntervalMonths: 12 },
+  ];
+  const tests = [
+    t({ irrigatorId: "a", testDate: "2025-01-01" }),
+    t({ irrigatorId: "b", testDate: "2026-01-20" }),
+    t({ irrigatorId: "c", testDate: "2026-06-01" }),
+  ];
+  const s = summarizeFarm(irrigators, tests, "2027-01-01");
+  assert.deepEqual(s, { irrigatorCount: 4, overdue: 1, dueSoon: 1, neverTested: 1, lastTestDate: "2026-06-01" });
+  assert.equal(describeFarm(s), "1 overdue · 1 due soon · 1 not tested yet");
+  assert.equal(describeFarm(summarizeFarm([], [], "2027-01-01")), "No irrigators yet");
+  assert.equal(describeFarm(summarizeFarm([irrigators[2]], tests, "2026-07-01")), "All up to date");
 });
