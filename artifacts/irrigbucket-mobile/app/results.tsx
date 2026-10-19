@@ -10,13 +10,17 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StepHeader } from '@/components/ui/StepHeader';
 import { useWizard } from '@/context/WizardContext';
 import { useColors } from '@/hooks/useColors';
+import { DEFAULT_TEST_INTERVAL_MONTHS, addMonths, formatDate, retestIntervalMonths } from '@workspace/sync';
+
 import { calculateTestResults, calcKlineApplication, getEffectiveTestRunMinutes, formatPressure } from '@/lib/calculations';
+import { nextSteps } from '@/lib/irrigatorStatus';
+import { farmDirectory } from '@/lib/sync/farmDirectory';
 
 export default function ResultsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
-  const { volumes, systemParams, plan, sections, irrigatorType, operationData, saveCurrentReport, reset } = useWizard();
+  const { volumes, systemParams, plan, sections, irrigatorType, operationData, testDate, saveCurrentReport, reset } = useWizard();
   const savedRef = useRef(false);
 
   useEffect(() => {
@@ -60,6 +64,16 @@ export default function ResultsScreen() {
   };
 
   const duPct = (results.du * 100).toFixed(1);
+  const advice = nextSteps(results.duStatus);
+  const irrigator = operationData.irrigatorId ? farmDirectory.getIrrigator(operationData.irrigatorId) : null;
+  const retestMonths = retestIntervalMonths(
+    irrigator?.testIntervalMonths ?? DEFAULT_TEST_INTERVAL_MONTHS,
+    results.duStatus,
+  );
+  const nextDue = testDate ? addMonths(testDate, retestMonths) : null;
+  const nextTestText = results.duStatus === 'poor'
+    ? `Re-test after repairs${nextDue ? `, and by ${formatDate(nextDue)} at the latest` : ''}.`
+    : `Next bucket test: ${nextDue ? `by ${formatDate(nextDue)}` : `in ${retestMonths} months`}.`;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -175,17 +189,9 @@ export default function ResultsScreen() {
             color={results.duStatus === 'good' ? colors.primary : results.duStatus === 'fair' ? colors.fair : colors.poor}
           />
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={[styles.recTitle, { color: colors.foreground }]}>
-              {results.duStatus === 'good' ? 'Excellent uniformity' : results.duStatus === 'fair' ? 'Acceptable uniformity' : 'Poor uniformity — action required'}
-            </Text>
-            <Text style={[styles.recBody, { color: colors.mutedForeground }]}>
-              {results.duStatus === 'good'
-                ? 'Your irrigation system is performing well. Schedule the next test in 12 months.'
-                : results.duStatus === 'fair'
-                ? 'Monitor performance and consider maintenance. Retest in 6 months.'
-                : 'Inspect nozzles, pressure regulators, and emitters. Contact your irrigation specialist.'
-              }
-            </Text>
+            <Text style={[styles.recTitle, { color: colors.foreground }]}>{advice.title}</Text>
+            <Text style={[styles.recBody, { color: colors.mutedForeground }]}>{advice.body}</Text>
+            <Text style={[styles.recNext, { color: colors.foreground }]}>{nextTestText}</Text>
           </View>
         </View>
 
@@ -225,6 +231,7 @@ const styles = StyleSheet.create({
   recCard: { borderRadius: 16, borderWidth: 1, padding: 16, flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   recTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
   recBody: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 20 },
+  recNext: { fontSize: 13, fontFamily: 'Inter_600SemiBold', marginTop: 4 },
   actions: { gap: 10 },
   savedNote: { fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'center' },
 });

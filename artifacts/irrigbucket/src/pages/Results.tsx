@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button';
 import { saveReport } from '@/lib/savedReports';
 import { ReportContent } from '@/components/report/ReportContent';
 import { BillingPaywall } from '@/components/billing/BillingPaywall';
+import { NextStepsCard } from '@/components/report/NextStepsCard';
+import { farmDirectory } from '@/lib/farmDirectory';
+import { DEFAULT_TEST_INTERVAL_MONTHS } from '@workspace/sync';
+import { useAuth } from '@workspace/replit-auth-web';
 
 export default function Results() {
   const [, setLocation] = useLocation();
@@ -21,6 +25,9 @@ export default function Results() {
   // the local-first Dexie store AND enqueues an upsert with the SyncEngine,
   // which drains to the server when online — no separate API call needed.
   const savedRef = useRef(false);
+  const { user } = useAuth();
+  const isConsultant = user?.accountType === 'consultant';
+  const irrigator = operationData.irrigatorId ? farmDirectory.getIrrigator(operationData.irrigatorId) : null;
 
   useEffect(() => {
     if (!plan || volumes.length === 0) setLocation('/');
@@ -51,6 +58,14 @@ export default function Results() {
           title="Unlock your results"
           description="Your bucket readings are saved on this device. Subscribe to see the full report, recommendations, and printable results."
         >
+          {!isConsultant && (
+            <NextStepsCard
+              duStatus={results.duStatus}
+              du={results.du}
+              testDate={testDate}
+              intervalMonths={irrigator?.testIntervalMonths ?? DEFAULT_TEST_INTERVAL_MONTHS}
+            />
+          )}
           <ReportContent
             irrigatorType={irrigatorType}
             systemParams={systemParams}

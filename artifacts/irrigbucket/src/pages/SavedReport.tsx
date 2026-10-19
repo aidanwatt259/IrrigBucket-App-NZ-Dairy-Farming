@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ReportContent } from '@/components/report/ReportContent';
 import { BillingPaywall } from '@/components/billing/BillingPaywall';
+import { NextStepsCard } from '@/components/report/NextStepsCard';
+import { farmDirectory } from '@/lib/farmDirectory';
+import { DEFAULT_TEST_INTERVAL_MONTHS } from '@workspace/sync';
+import { useAuth } from '@workspace/replit-auth-web';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +30,8 @@ export default function SavedReport() {
   const [, setLocation] = useLocation();
   const [report, setReport] = useState<SavedReportType | null | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
+  const isConsultant = user?.accountType === 'consultant';
 
   useEffect(() => {
     let active = true;
@@ -138,6 +144,18 @@ export default function SavedReport() {
             title="Unlock saved reports"
             description="Subscribe annually to open previous bucket test reports."
           >
+            {!isConsultant && (
+              <NextStepsCard
+                duStatus={results.duStatus}
+                du={results.du}
+                testDate={report.testDate}
+                intervalMonths={
+                  (report.operationData.irrigatorId &&
+                    farmDirectory.getIrrigator(report.operationData.irrigatorId)?.testIntervalMonths) ||
+                  DEFAULT_TEST_INTERVAL_MONTHS
+                }
+              />
+            )}
             <ReportContent
               irrigatorType={report.irrigatorType}
               systemParams={report.systemParams}

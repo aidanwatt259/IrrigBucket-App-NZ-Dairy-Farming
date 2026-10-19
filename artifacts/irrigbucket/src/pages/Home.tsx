@@ -15,6 +15,8 @@ import { Card } from '@/components/ui/card';
 import { SideMenu } from '@/components/layout/SideMenu';
 import type { LocalFarm, LocalIrrigator } from '@workspace/sync';
 import { farmDirectory, useFarmDirectory } from '@/lib/farmDirectory';
+import { MyIrrigators } from '@/components/farms/MyIrrigators';
+import { useAuth } from '@workspace/replit-auth-web';
 
 function RotoRainerIcon({ className }: { className?: string }) {
   return (
@@ -77,6 +79,10 @@ export default function Home() {
   const startRetest = useAppStore(state => state.startRetest);
   const currentType = useAppStore(state => state.irrigatorType);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
+  // Consultants keep the plain re-test list until their dashboard lands;
+  // everyone else (farmers and guests) gets the farmer view.
+  const isConsultant = user?.accountType === 'consultant';
   useFarmDirectory();
   const savedIrrigators = farmDirectory.listFarms().flatMap((farm) =>
     farmDirectory.listIrrigators(farm.id).map((irrigator) => ({ farm, irrigator })),
@@ -150,7 +156,8 @@ export default function Home() {
       </div>
 
       {/* Saved irrigators */}
-      {savedIrrigators.length > 0 && (
+      {!isConsultant && <MyIrrigators />}
+      {isConsultant && savedIrrigators.length > 0 && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
           <h2 className="text-2xl font-display font-bold text-center mb-2">Re-test a saved irrigator</h2>
           <p className="text-muted-foreground text-center mb-8">Its farm and last settings are filled in for you.</p>

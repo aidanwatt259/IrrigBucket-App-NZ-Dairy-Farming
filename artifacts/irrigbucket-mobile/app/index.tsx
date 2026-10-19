@@ -1,13 +1,16 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '@/hooks/useColors';
+import { MyIrrigators, useIrrigatorRows, type IrrigatorRow } from '@/components/farms/MyIrrigators';
+import { useAuth } from '@/context/AuthContext';
 import { useWizard } from '@/context/WizardContext';
 import type { SystemParams } from '@/lib/calculations';
+import { summarizeReports } from '@/lib/irrigatorStatus';
 import { farmDirectory, useFarmDirectory } from '@/lib/sync/farmDirectory';
 
 interface IrrigatorType {
@@ -30,6 +33,11 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setIrrigatorType, irrigatorType, savedReports, startRetest } = useWizard();
+  // Consultants keep the plain re-test list until their dashboard lands;
+  // everyone else (farmers and guests) gets the farmer view.
+  const isConsultant = useAuth().accountType === 'consultant';
+  const tests = useMemo(() => summarizeReports(savedReports), [savedReports]);
+  const irrigatorRows = useIrrigatorRows(tests);
   useFarmDirectory();
   const savedIrrigators = farmDirectory
     .listIrrigators()
@@ -60,6 +68,9 @@ export default function HomeScreen() {
     });
     router.push('/setup');
   };
+
+  const handleTestRow = (row: IrrigatorRow) => handleRetest(row);
+  const handleOpenReport = (reportId: string) => router.push(`/report/${reportId}`);
 
   const handleContinue = () => {
     if (!irrigatorType) return;
@@ -125,7 +136,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {savedIrrigators.length > 0 && (
+        {!isConsultant && (
+          <MyIrrigators rows={irrigatorRows} onTest={handleTestRow} onOpenReport={handleOpenReport} />
+        )}
+        {isConsultant && savedIrrigators.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Re-test a saved irrigator</Text>
             <View style={styles.retestList}>
