@@ -53,3 +53,22 @@ export {
   mergeRemote,
   normalizeName,
 } from "./farms.js";
+
+export type {
+  DueState,
+  DuStatus,
+  IrrigatorStatus,
+  TestSummary,
+} from "./farmStatus.js";
+
+export {
+  DUE_SOON_DAYS,
+  addMonths,
+  daysBetween,
+  describeDue,
+  formatDate,
+  irrigatorStatus,
+  latestTest,
+  retestIntervalMonths,
+  todayString,
+} from "./farmStatus.js";
