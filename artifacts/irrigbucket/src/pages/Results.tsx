@@ -12,7 +12,7 @@ import { BillingPaywall } from '@/components/billing/BillingPaywall';
 import { NextStepsCard } from '@/components/report/NextStepsCard';
 import { farmDirectory } from '@/lib/farmDirectory';
 import { DEFAULT_TEST_INTERVAL_MONTHS } from '@workspace/sync';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useAccountType } from '@/lib/accountType';
 
 export default function Results() {
   const [, setLocation] = useLocation();
@@ -25,8 +25,7 @@ export default function Results() {
   // the local-first Dexie store AND enqueues an upsert with the SyncEngine,
   // which drains to the server when online — no separate API call needed.
   const savedRef = useRef(false);
-  const { user } = useAuth();
-  const isConsultant = user?.accountType === 'consultant';
+  const isConsultant = useAccountType() === 'consultant';
   const irrigator = operationData.irrigatorId ? farmDirectory.getIrrigator(operationData.irrigatorId) : null;
 
   useEffect(() => {

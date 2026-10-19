@@ -6,12 +6,12 @@ import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColors } from '@/hooks/useColors';
+import { ConsultantHome } from '@/components/farms/ConsultantHome';
 import { MyIrrigators, useIrrigatorRows, type IrrigatorRow } from '@/components/farms/MyIrrigators';
 import { useAuth } from '@/context/AuthContext';
 import { useWizard } from '@/context/WizardContext';
 import type { SystemParams } from '@/lib/calculations';
 import { summarizeReports } from '@/lib/irrigatorStatus';
-import { farmDirectory, useFarmDirectory } from '@/lib/sync/farmDirectory';
 
 interface IrrigatorType {
   id: string;
@@ -33,21 +33,11 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setIrrigatorType, irrigatorType, savedReports, startRetest } = useWizard();
-  // Consultants keep the plain re-test list until their dashboard lands;
-  // everyone else (farmers and guests) gets the farmer view.
+  // Consultants get a farm portfolio; everyone else (farmers and guests)
+  // gets the farmer view.
   const isConsultant = useAuth().accountType === 'consultant';
   const tests = useMemo(() => summarizeReports(savedReports), [savedReports]);
   const irrigatorRows = useIrrigatorRows(tests);
-  useFarmDirectory();
-  const savedIrrigators = farmDirectory
-    .listIrrigators()
-    .flatMap((irrigator) => {
-      const farm = farmDirectory.getFarm(irrigator.farmId);
-      return farm ? [{ irrigator, farm }] : [];
-    })
-    .sort((a, b) =>
-      a.farm.name.localeCompare(b.farm.name) || a.irrigator.name.localeCompare(b.irrigator.name),
-    );
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -56,7 +46,7 @@ export default function HomeScreen() {
     setIrrigatorType(id);
   };
 
-  const handleRetest = ({ irrigator, farm }: (typeof savedIrrigators)[number]) => {
+  const handleRetest = ({ irrigator, farm }: IrrigatorRow) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     startRetest({
       irrigatorType: irrigator.type,
@@ -117,6 +107,16 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {isConsultant ? (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <ConsultantHome tests={tests} />
+        </ScrollView>
+      ) : (
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.scroll, { paddingBottom: 16 }]}
@@ -136,43 +136,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {!isConsultant && (
-          <MyIrrigators rows={irrigatorRows} onTest={handleTestRow} onOpenReport={handleOpenReport} />
-        )}
-        {isConsultant && savedIrrigators.length > 0 && (
-          <>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Re-test a saved irrigator</Text>
-            <View style={styles.retestList}>
-              {savedIrrigators.map((entry) => {
-                const type = IRRIGATOR_TYPES.find(t => t.id === entry.irrigator.type);
-                return (
-                  <TouchableOpacity
-                    key={entry.irrigator.id}
-                    onPress={() => handleRetest(entry)}
-                    activeOpacity={0.8}
-                    testID={`retest-${entry.irrigator.id}`}
-                    style={[styles.retestRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  >
-                    <View style={[styles.retestIcon, { backgroundColor: colors.muted }]}>
-                      <Feather name={type?.icon ?? 'droplet'} size={18} color={colors.foreground} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.cardTitle, { color: colors.foreground }]}>{entry.irrigator.name}</Text>
-                      <Text style={[styles.cardDesc, { color: colors.mutedForeground }]}>
-                        {entry.farm.name}{type ? ` · ${type.name}` : ''}
-                      </Text>
-                    </View>
-                    <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        )}
-
+        <MyIrrigators rows={irrigatorRows} onTest={handleTestRow} onOpenReport={handleOpenReport} />
         {/* Section title */}
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          {savedIrrigators.length > 0 ? 'Or test a new irrigator' : 'Select your irrigator type'}
+          {irrigatorRows.length > 0 ? 'Or test a new irrigator' : 'Select your irrigator type'}
         </Text>
 
         {/* Grid */}
@@ -216,7 +183,10 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
+      )}
+
       {/* Fixed bottom bar — Start Test button */}
+      {!isConsultant && (
       <View style={[
         styles.bottomBar,
         {
@@ -249,6 +219,7 @@ export default function HomeScreen() {
           <Feather name="arrow-right" size={18} color={irrigatorType ? colors.primaryForeground : colors.mutedForeground} />
         </TouchableOpacity>
       </View>
+      )}
     </View>
   );
 }
@@ -294,9 +265,6 @@ const styles = StyleSheet.create({
   cardIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 14, fontFamily: 'Outfit_700Bold', marginBottom: 4, letterSpacing: -0.2 },
   cardDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 17 },
-  retestList: { gap: 10, marginBottom: 28 },
-  retestRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 14, padding: 12 },
-  retestIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   selectedDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4 },
   dairyBadge: {
     flexDirection: 'row',

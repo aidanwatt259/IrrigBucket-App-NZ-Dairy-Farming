@@ -13,10 +13,10 @@ import {
 import { useAppStore } from '@/lib/store';
 import { Card } from '@/components/ui/card';
 import { SideMenu } from '@/components/layout/SideMenu';
-import type { LocalFarm, LocalIrrigator } from '@workspace/sync';
 import { farmDirectory, useFarmDirectory } from '@/lib/farmDirectory';
 import { MyIrrigators } from '@/components/farms/MyIrrigators';
-import { useAuth } from '@workspace/replit-auth-web';
+import { ConsultantDashboard } from '@/components/farms/ConsultantDashboard';
+import { useAccountType } from '@/lib/accountType';
 
 function RotoRainerIcon({ className }: { className?: string }) {
   return (
@@ -76,32 +76,16 @@ const irrigatorTypes = [
 export default function Home() {
   const [, setLocation] = useLocation();
   const setIrrigatorType = useAppStore(state => state.setIrrigatorType);
-  const startRetest = useAppStore(state => state.startRetest);
   const currentType = useAppStore(state => state.irrigatorType);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
-  // Consultants keep the plain re-test list until their dashboard lands;
-  // everyone else (farmers and guests) gets the farmer view.
-  const isConsultant = user?.accountType === 'consultant';
+  // Consultants get a farm portfolio; everyone else (farmers and guests)
+  // gets the farmer view.
+  const isConsultant = useAccountType() === 'consultant';
   useFarmDirectory();
-  const savedIrrigators = farmDirectory.listFarms().flatMap((farm) =>
-    farmDirectory.listIrrigators(farm.id).map((irrigator) => ({ farm, irrigator })),
-  );
+  const hasSavedIrrigators = farmDirectory.listIrrigators().length > 0;
 
   const handleSelect = (id: string) => {
     setIrrigatorType(id);
-    setLocation('/setup');
-  };
-
-  const handleRetest = (farm: LocalFarm, irrigator: LocalIrrigator) => {
-    startRetest({
-      irrigatorType: irrigator.type,
-      details: irrigator.details,
-      farmId: farm.id,
-      farmName: farm.name,
-      irrigatorId: irrigator.id,
-      irrigatorName: irrigator.name,
-    });
     setLocation('/setup');
   };
 
@@ -134,121 +118,85 @@ export default function Home() {
       </header>
 
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
-      {/* Hero Section */}
-      <div className="relative pt-[calc(4rem+var(--offline-banner-h,0px))] pb-16 sm:pt-[calc(6rem+var(--offline-banner-h,0px))] sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-3xl mx-auto"
-        >
-          <div className="mx-auto w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8 shadow-inner">
-            <Droplet className="w-10 h-10 text-primary fill-primary" />
+      {isConsultant ? (
+        <ConsultantDashboard />
+      ) : (
+        <>
+          {/* Hero Section */}
+          <div className="relative pt-[calc(4rem+var(--offline-banner-h,0px))] pb-16 sm:pt-[calc(6rem+var(--offline-banner-h,0px))] sm:pb-24 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-white to-background border-b border-border/50">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="max-w-3xl mx-auto"
+            >
+              <div className="mx-auto w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8 shadow-inner">
+                <Droplet className="w-10 h-10 text-primary fill-primary" />
+              </div>
+              <h1 className="text-5xl sm:text-6xl font-display font-extrabold tracking-tight text-foreground mb-6">
+                Perfect Bucket Tests,<br className="hidden sm:block" />
+                <span className="text-primary">Every Time.</span>
+              </h1>
+              <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+                Get the exact setup for your irrigation system — bucket count, spacing, and placement, calculated instantly for NZ dairy farmers.
+              </p>
+            </motion.div>
           </div>
-          <h1 className="text-5xl sm:text-6xl font-display font-extrabold tracking-tight text-foreground mb-6">
-            Perfect Bucket Tests,<br className="hidden sm:block" />
-            <span className="text-primary">Every Time.</span>
-          </h1>
-          <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            Get the exact setup for your irrigation system — bucket count, spacing, and placement, calculated instantly for NZ dairy farmers.
-          </p>
-        </motion.div>
-      </div>
 
-      {/* Saved irrigators */}
-      {!isConsultant && <MyIrrigators />}
-      {isConsultant && savedIrrigators.length > 0 && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
-          <h2 className="text-2xl font-display font-bold text-center mb-2">Re-test a saved irrigator</h2>
-          <p className="text-muted-foreground text-center mb-8">Its farm and last settings are filled in for you.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedIrrigators.map(({ farm, irrigator }) => {
-              const type = irrigatorTypes.find(t => t.id === irrigator.type);
-              return (
-                <Card
-                  key={irrigator.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Re-test ${irrigator.name} at ${farm.name}`}
-                  className="cursor-pointer transition-all duration-300 hover-elevate hover:border-primary/50 text-left"
-                  onClick={() => handleRetest(farm, irrigator)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleRetest(farm, irrigator);
-                    }
-                  }}
-                >
-                  <div className="p-5 flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0">
-                      {type?.custom
-                        ? <RotoRainerIcon className="w-6 h-6" />
-                        : (() => { const Icon = type?.icon ?? Droplet; return <Icon className="w-6 h-6" />; })()
-                      }
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-bold font-display truncate">{irrigator.name}</h3>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {farm.name}{type ? ` · ${type.name}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
+          <MyIrrigators />
 
-      {/* Selection Grid */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-2xl font-display font-bold text-center mb-10">
-          {savedIrrigators.length > 0 ? 'Or test a new irrigator:' : 'Select your irrigator type to begin:'}
-        </h2>
+          {/* Selection Grid */}
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <h2 className="text-2xl font-display font-bold text-center mb-10">
+              {hasSavedIrrigators ? 'Or test a new irrigator:' : 'Select your irrigator type to begin:'}
+            </h2>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {irrigatorTypes.map((type, i) => {
-            const isSelected = currentType === type.id;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {irrigatorTypes.map((type, i) => {
+                const isSelected = currentType === type.id;
             
-            return (
-              <motion.div
-                key={type.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-              >
-                <Card
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={isSelected}
-                  aria-label={`${type.name}. ${type.desc}`}
-                  className={`cursor-pointer transition-all duration-300 h-full flex flex-col hover-elevate text-left ${
-                    isSelected ? 'ring-4 ring-primary border-primary' : 'hover:border-primary/50'
-                  }`}
-                  onClick={() => handleSelect(type.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSelect(type.id);
-                    }
-                  }}
-                >
-                  <div className="p-6 md:p-8 flex-1 flex flex-col items-center text-center">
-                    <div className={`p-4 rounded-2xl mb-6 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
-                      {type.custom
-                        ? <RotoRainerIcon className="w-8 h-8" />
-                        : (() => { const Icon = type.icon!; return <Icon className="w-8 h-8" />; })()
-                      }
-                    </div>
-                    <h3 className="text-xl font-bold font-display mb-2">{type.name}</h3>
-                    <p className="text-muted-foreground">{type.desc}</p>
-                  </div>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+                return (
+                  <motion.div
+                    key={type.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: i * 0.1 }}
+                  >
+                    <Card
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      aria-label={`${type.name}. ${type.desc}`}
+                      className={`cursor-pointer transition-all duration-300 h-full flex flex-col hover-elevate text-left ${
+                        isSelected ? 'ring-4 ring-primary border-primary' : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => handleSelect(type.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelect(type.id);
+                        }
+                      }}
+                    >
+                      <div className="p-6 md:p-8 flex-1 flex flex-col items-center text-center">
+                        <div className={`p-4 rounded-2xl mb-6 ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
+                          {type.custom
+                            ? <RotoRainerIcon className="w-8 h-8" />
+                            : (() => { const Icon = type.icon!; return <Icon className="w-8 h-8" />; })()
+                          }
+                        </div>
+                        <h3 className="text-xl font-bold font-display mb-2">{type.name}</h3>
+                        <p className="text-muted-foreground">{type.desc}</p>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+        </>
+      )}
 
       {/* Footer Badge */}
       <div className="max-w-md mx-auto pb-20 text-center px-4">

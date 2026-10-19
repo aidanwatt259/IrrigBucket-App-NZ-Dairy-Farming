@@ -12,7 +12,7 @@ import { BillingPaywall } from '@/components/billing/BillingPaywall';
 import { NextStepsCard } from '@/components/report/NextStepsCard';
 import { farmDirectory } from '@/lib/farmDirectory';
 import { DEFAULT_TEST_INTERVAL_MONTHS } from '@workspace/sync';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useAccountType } from '@/lib/accountType';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +30,7 @@ export default function SavedReport() {
   const [, setLocation] = useLocation();
   const [report, setReport] = useState<SavedReportType | null | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
-  const isConsultant = user?.accountType === 'consultant';
+  const isConsultant = useAccountType() === 'consultant';
 
   useEffect(() => {
     let active = true;

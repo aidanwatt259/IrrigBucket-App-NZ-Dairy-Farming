@@ -1,4 +1,5 @@
 import { useAppStore } from './store';
+import { cacheAccountType } from './accountType';
 
 /**
  * Local reports live in this browser's IndexedDB, which is shared by everyone
@@ -103,5 +104,6 @@ export function clearAccountSessionState(): void {
 /** Call right before logging out, while the page is still on this account. */
 export function prepareForLogout(): void {
   clearAccountSessionState();
+  cacheAccountType(null);
   writeCachedAccount(GUEST_ACCOUNT);
 }

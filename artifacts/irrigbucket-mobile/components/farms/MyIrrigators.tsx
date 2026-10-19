@@ -9,7 +9,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useColors } from '@/hooks/useColors';
 import { useFarmDirectory } from '@/lib/sync/farmDirectory';
 
-const TYPE_NAMES: Record<string, string> = {
+export const TYPE_NAMES: Record<string, string> = {
   pivot: 'Centre Pivot',
   lateral: 'Lateral Move',
   kline: 'K-Line / Pods',
@@ -36,19 +36,102 @@ function rowOrder(a: IrrigatorRow, b: IrrigatorRow): number {
 }
 
 /** Every saved irrigator with its last result and next test, ready to render. */
-export function useIrrigatorRows(tests: TestSummary[]): IrrigatorRow[] {
+export function useIrrigatorRows(tests: TestSummary[], farmId?: string): IrrigatorRow[] {
   const snapshot = useFarmDirectory();
   return useMemo(() => {
     const today = todayString();
     const farms = new Map(snapshot.farms.filter((f) => f.deletedAt === null).map((f) => [f.id, f]));
     const rows: IrrigatorRow[] = [];
     for (const irrigator of snapshot.irrigators) {
+      if (irrigator.deletedAt !== null || (farmId && irrigator.farmId !== farmId)) continue;
       const farm = farms.get(irrigator.farmId);
-      if (!farm || irrigator.deletedAt !== null) continue;
+      if (!farm) continue;
       rows.push({ farm, irrigator, status: irrigatorStatus(irrigator, tests, today) });
     }
     return rows.sort(rowOrder);
-  }, [snapshot, tests]);
+  }, [snapshot, tests, farmId]);
+}
+
+export function countNeedingTest(rows: IrrigatorRow[]): number {
+  return rows.filter((r) => r.status.state === 'overdue' || r.status.state === 'due-soon').length;
+}
+
+/** One saved irrigator: last result, next test, and Test now / Last report. */
+export function IrrigatorCard({
+  row,
+  showFarmName,
+  onTest,
+  onOpenReport,
+}: {
+  row: IrrigatorRow;
+  showFarmName: boolean;
+  onTest: (row: IrrigatorRow) => void;
+  onOpenReport: (reportId: string) => void;
+}) {
+  const colors = useColors();
+  const { irrigator, farm, status } = row;
+  const last = status.lastTest;
+  const dueColor =
+    status.state === 'overdue' ? colors.poor : status.state === 'due-soon' ? colors.fair : colors.mutedForeground;
+
+  return (
+    <View
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      testID={`irrigator-${irrigator.id}`}
+    >
+      <View style={styles.headRow}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
+            {irrigator.name}
+          </Text>
+          <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {showFarmName ? `${farm.name} · ` : ''}
+            {TYPE_NAMES[irrigator.type] ?? irrigator.type}
+          </Text>
+        </View>
+        {last?.du != null && last.duStatus ? (
+          <StatusBadge status={last.duStatus} label={`DU ${Math.round(last.du * 100)}%`} />
+        ) : null}
+      </View>
+
+      <Text style={[styles.meta, { color: colors.mutedForeground }]}>
+        {last ? `Last tested ${formatDate(last.testDate)}` : 'No test recorded yet'}
+      </Text>
+      <View style={styles.dueRow}>
+        <Feather
+          name={status.state === 'overdue' ? 'alert-triangle' : status.state === 'ok' ? 'check-circle' : 'clock'}
+          size={14}
+          color={dueColor}
+        />
+        <Text style={[styles.due, { color: dueColor }]}>
+          {status.state === 'never' ? 'Run its first test' : describeDue(status)}
+        </Text>
+      </View>
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          onPress={() => onTest(row)}
+          activeOpacity={0.8}
+          testID={`test-${irrigator.id}`}
+          style={[styles.btn, { backgroundColor: colors.primary }]}
+        >
+          <Feather name="play" size={14} color={colors.primaryForeground} />
+          <Text style={[styles.btnText, { color: colors.primaryForeground }]}>Test now</Text>
+        </TouchableOpacity>
+        {last && (
+          <TouchableOpacity
+            onPress={() => onOpenReport(last.reportId)}
+            activeOpacity={0.8}
+            testID={`report-${irrigator.id}`}
+            style={[styles.btn, styles.btnOutline, { borderColor: colors.border }]}
+          >
+            <Feather name="file-text" size={14} color={colors.foreground} />
+            <Text style={[styles.btnText, { color: colors.foreground }]}>Last report</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
 }
 
 /** The farmer's home dashboard: every saved irrigator, its last result and next test. */
@@ -64,10 +147,8 @@ export function MyIrrigators({
   const colors = useColors();
   if (rows.length === 0) return null;
 
-  const needingTest = rows.filter((r) => r.status.state === 'overdue' || r.status.state === 'due-soon').length;
+  const needingTest = countNeedingTest(rows);
   const showFarmNames = new Set(rows.map((r) => r.farm.id)).size > 1;
-  const dueColor = (state: IrrigatorStatus['state']) =>
-    state === 'overdue' ? colors.poor : state === 'due-soon' ? colors.fair : colors.mutedForeground;
 
   return (
     <View style={styles.wrap}>
@@ -80,69 +161,15 @@ export function MyIrrigators({
             : `${needingTest} irrigators are due for a bucket test.`}
       </Text>
       <View style={styles.list}>
-        {rows.map((row) => {
-          const { irrigator, farm, status } = row;
-          const last = status.lastTest;
-          return (
-            <View
-              key={irrigator.id}
-              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-              testID={`irrigator-${irrigator.id}`}
-            >
-              <View style={styles.headRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>
-                    {irrigator.name}
-                  </Text>
-                  <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
-                    {showFarmNames ? `${farm.name} · ` : ''}
-                    {TYPE_NAMES[irrigator.type] ?? irrigator.type}
-                  </Text>
-                </View>
-                {last?.du != null && last.duStatus ? (
-                  <StatusBadge status={last.duStatus} label={`DU ${Math.round(last.du * 100)}%`} />
-                ) : null}
-              </View>
-
-              <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-                {last ? `Last tested ${formatDate(last.testDate)}` : 'No test recorded yet'}
-              </Text>
-              <View style={styles.dueRow}>
-                <Feather
-                  name={status.state === 'overdue' ? 'alert-triangle' : status.state === 'ok' ? 'check-circle' : 'clock'}
-                  size={14}
-                  color={dueColor(status.state)}
-                />
-                <Text style={[styles.due, { color: dueColor(status.state) }]}>
-                  {status.state === 'never' ? 'Run its first test' : describeDue(status)}
-                </Text>
-              </View>
-
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  onPress={() => onTest(row)}
-                  activeOpacity={0.8}
-                  testID={`test-${irrigator.id}`}
-                  style={[styles.btn, { backgroundColor: colors.primary }]}
-                >
-                  <Feather name="play" size={14} color={colors.primaryForeground} />
-                  <Text style={[styles.btnText, { color: colors.primaryForeground }]}>Test now</Text>
-                </TouchableOpacity>
-                {last && (
-                  <TouchableOpacity
-                    onPress={() => onOpenReport(last.reportId)}
-                    activeOpacity={0.8}
-                    testID={`report-${irrigator.id}`}
-                    style={[styles.btn, styles.btnOutline, { borderColor: colors.border }]}
-                  >
-                    <Feather name="file-text" size={14} color={colors.foreground} />
-                    <Text style={[styles.btnText, { color: colors.foreground }]}>Last report</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          );
-        })}
+        {rows.map((row) => (
+          <IrrigatorCard
+            key={row.irrigator.id}
+            row={row}
+            showFarmName={showFarmNames}
+            onTest={onTest}
+            onOpenReport={onOpenReport}
+          />
+        ))}
       </View>
     </View>
   );

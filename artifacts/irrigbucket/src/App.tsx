@@ -14,6 +14,7 @@ import Operation from "@/pages/Operation";
 import DataEntry from "@/pages/DataEntry";
 import Results from "@/pages/Results";
 import SavedReport from "@/pages/SavedReport";
+import FarmDetail from "@/pages/FarmDetail";
 import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
 import Login from "@/pages/Login";
@@ -50,6 +51,7 @@ function Router() {
         <Route path="/data" component={DataEntry} />
         <Route path="/results" component={Results} />
         <Route path="/reports/:id" component={SavedReport} />
+        <Route path="/farms/:id" component={FarmDetail} />
         <Route path="/subscribe" component={Subscribe} />
         <Route path="/admin" component={Admin} />
         <Route component={NotFound} />

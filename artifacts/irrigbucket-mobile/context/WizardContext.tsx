@@ -52,6 +52,13 @@ export interface RetestTarget {
   irrigatorName: string;
 }
 
+/** A farm (and type) to start a fresh test at, with no irrigator chosen yet. */
+export interface FarmTestTarget {
+  irrigatorType: string;
+  farmId: string;
+  farmName: string;
+}
+
 interface WizardContextValue extends WizardState {
   setIrrigatorType: (type: string) => void;
   setSystemParams: (params: Partial<SystemParams>) => void;
@@ -61,6 +68,7 @@ interface WizardContextValue extends WizardState {
   setTestConditions: (date: string, windSpeed: number | null) => void;
   setSections: (sections: SectionDefinition[]) => void;
   startRetest: (retest: RetestTarget) => void;
+  startFarmTest: (target: FarmTestTarget) => void;
   reset: () => void;
   saveCurrentReport: () => SavedReport | null;
   deleteReport: (id: string) => void;
@@ -192,6 +200,20 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const startFarmTest = useCallback((target: FarmTestTarget) => {
+    setState(prev => ({
+      ...initialState,
+      savedReports: prev.savedReports,
+      irrigatorType: target.irrigatorType,
+      testDate: new Date().toISOString().split('T')[0],
+      operationData: {
+        assessorName: prev.operationData.assessorName,
+        farmId: target.farmId,
+        farmName: target.farmName,
+      },
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(prev => ({ ...initialState, savedReports: prev.savedReports }));
   }, []);
@@ -240,6 +262,7 @@ export function WizardProvider({ children }: { children: React.ReactNode }) {
       setTestConditions,
       setSections,
       startRetest,
+      startFarmTest,
       reset,
       saveCurrentReport,
       deleteReport,

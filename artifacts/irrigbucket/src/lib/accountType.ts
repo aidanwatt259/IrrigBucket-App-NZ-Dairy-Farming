@@ -1,6 +1,43 @@
 import { setAccountType, type AccountType } from '@workspace/api-client-react';
+import { useAuth } from '@workspace/replit-auth-web';
 
 export type { AccountType };
+
+const CACHE_KEY = 'irrigbucket-account-type';
+
+function readCachedAccountType(): AccountType | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    return raw === 'farmer' || raw === 'consultant' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function cacheAccountType(accountType: AccountType | null): void {
+  try {
+    if (accountType) localStorage.setItem(CACHE_KEY, accountType);
+    else localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // storage unavailable
+  }
+}
+
+/**
+ * The signed-in user's account type. While the auth check is still running,
+ * the last known type is used so a consultant's Home doesn't flash the farmer
+ * view; guests and unknown users are farmers.
+ */
+export function useAccountType(): AccountType {
+  const { user, isLoading } = useAuth();
+  if (user) {
+    const type = user.accountType ?? 'farmer';
+    if (type !== readCachedAccountType()) cacheAccountType(type);
+    return type;
+  }
+  if (isLoading) return readCachedAccountType() ?? 'farmer';
+  return 'farmer';
+}
 
 const PENDING_KEY = 'irrigbucket-signup-account-type';
 const PENDING_TTL_MS = 60 * 60 * 1000;
@@ -39,5 +76,7 @@ export function takeSignupAccountType(): AccountType | undefined {
 
 export async function saveAccountType(accountType: AccountType): Promise<AccountType> {
   const { user } = await setAccountType({ accountType }, { credentials: 'include' });
-  return user?.accountType ?? accountType;
+  const saved = user?.accountType ?? accountType;
+  cacheAccountType(saved);
+  return saved;
 }

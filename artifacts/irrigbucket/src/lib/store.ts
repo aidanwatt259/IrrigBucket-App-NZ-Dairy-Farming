@@ -27,7 +27,15 @@ interface AppState {
   setOperationData: (data: Partial<OperationData>) => void;
   commitPivotSetup: (pivotSections: PivotSection[]) => void;
   startRetest: (retest: RetestTarget) => void;
+  startFarmTest: (target: FarmTestTarget) => void;
   reset: () => void;
+}
+
+/** A farm (and type) to start a fresh test at, with no irrigator chosen yet. */
+export interface FarmTestTarget {
+  irrigatorType: string;
+  farmId: string;
+  farmName: string;
 }
 
 /** A saved irrigator to start a new test for (see `startRetest`). */
@@ -174,6 +182,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       farmName: retest.farmName,
       irrigatorId: retest.irrigatorId,
       irrigatorName: retest.irrigatorName,
+    },
+  })),
+
+  startFarmTest: (target) => set((state) => ({
+    irrigatorType: target.irrigatorType,
+    systemParams: { ...defaultParams },
+    plan: null,
+    volumes: [],
+    windSpeed: 0,
+    testDate: new Date().toISOString().split('T')[0],
+    sections: [],
+    pivotSections: [],
+    operationData: {
+      assessorName: state.operationData.assessorName,
+      farmId: target.farmId,
+      farmName: target.farmName,
     },
   })),
 
