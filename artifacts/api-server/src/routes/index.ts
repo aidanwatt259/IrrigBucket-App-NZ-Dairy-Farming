@@ -8,6 +8,8 @@ import helpRequestsRouter from "./helpRequests";
 import feedbackRouter from "./feedback";
 import adminRouter from "./admin";
 import billingRouter from "./billing";
+import accountRouter from "./account";
+import sharesRouter from "./shares";
 
 const router: IRouter = Router();
 
@@ -30,7 +32,9 @@ router.use((_req, res, next) => {
 
 router.use(authRouter);
 router.use(reportsRouter);
+router.use(sharesRouter);
 router.use(farmsRouter);
+router.use(accountRouter);
 router.use(helpRequestsRouter);
 router.use(feedbackRouter);
 router.use(adminRouter);

@@ -23,6 +23,8 @@ import type {
   BillingCheckoutRequest,
   BillingRedirect,
   BillingStatus,
+  BusinessProfile,
+  BusinessProfileEnvelope,
   ErrorEnvelope,
   FarmDirectoryEnvelope,
   FarmEnvelope,
@@ -41,6 +43,8 @@ import type {
   SaveIrrigatorRequest,
   SaveReportRequest,
   SetAccountTypeRequest,
+  ShareLinkEnvelope,
+  SharedReportEnvelope,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1232,6 +1236,510 @@ export const useSaveIrrigator = <
 > => {
   return useMutation(getSaveIrrigatorMutationOptions(options));
 };
+
+/**
+ * @summary The signed-in user's business details printed on their reports
+ */
+export const getGetBusinessProfileUrl = () => {
+  return `/api/account/business-profile`;
+};
+
+export const getBusinessProfile = async (
+  options?: RequestInit,
+): Promise<BusinessProfileEnvelope> => {
+  return customFetch<BusinessProfileEnvelope>(getGetBusinessProfileUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBusinessProfileQueryKey = () => {
+  return [`/api/account/business-profile`] as const;
+};
+
+export const getGetBusinessProfileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBusinessProfile>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBusinessProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBusinessProfileQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBusinessProfile>>
+  > = ({ signal }) => getBusinessProfile({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBusinessProfile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBusinessProfileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBusinessProfile>>
+>;
+export type GetBusinessProfileQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary The signed-in user's business details printed on their reports
+ */
+
+export function useGetBusinessProfile<
+  TData = Awaited<ReturnType<typeof getBusinessProfile>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBusinessProfile>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBusinessProfileQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Replace the signed-in user's business profile
+ */
+export const getSetBusinessProfileUrl = () => {
+  return `/api/account/business-profile`;
+};
+
+export const setBusinessProfile = async (
+  businessProfile: BusinessProfile,
+  options?: RequestInit,
+): Promise<BusinessProfileEnvelope> => {
+  return customFetch<BusinessProfileEnvelope>(getSetBusinessProfileUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(businessProfile),
+  });
+};
+
+export const getSetBusinessProfileMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setBusinessProfile>>,
+    TError,
+    { data: BodyType<BusinessProfile> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setBusinessProfile>>,
+  TError,
+  { data: BodyType<BusinessProfile> },
+  TContext
+> => {
+  const mutationKey = ["setBusinessProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setBusinessProfile>>,
+    { data: BodyType<BusinessProfile> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setBusinessProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetBusinessProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setBusinessProfile>>
+>;
+export type SetBusinessProfileMutationBody = BodyType<BusinessProfile>;
+export type SetBusinessProfileMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Replace the signed-in user's business profile
+ */
+export const useSetBusinessProfile = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setBusinessProfile>>,
+    TError,
+    { data: BodyType<BusinessProfile> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setBusinessProfile>>,
+  TError,
+  { data: BodyType<BusinessProfile> },
+  TContext
+> => {
+  return useMutation(getSetBusinessProfileMutationOptions(options));
+};
+
+/**
+ * @summary The live share link for one of my reports, if any
+ */
+export const getGetReportShareUrl = (id: string) => {
+  return `/api/reports/${id}/share`;
+};
+
+export const getReportShare = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ShareLinkEnvelope> => {
+  return customFetch<ShareLinkEnvelope>(getGetReportShareUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReportShareQueryKey = (id: string) => {
+  return [`/api/reports/${id}/share`] as const;
+};
+
+export const getGetReportShareQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReportShare>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReportShare>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReportShareQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getReportShare>>> = ({
+    signal,
+  }) => getReportShare(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReportShare>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReportShareQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReportShare>>
+>;
+export type GetReportShareQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary The live share link for one of my reports, if any
+ */
+
+export function useGetReportShare<
+  TData = Awaited<ReturnType<typeof getReportShare>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getReportShare>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReportShareQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates a share link for the report, or returns the existing live one. Anyone with the link can view and print the report without an account.
+ * @summary Share a report with the farmer via a public read-only link
+ */
+export const getCreateReportShareUrl = (id: string) => {
+  return `/api/reports/${id}/share`;
+};
+
+export const createReportShare = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ShareLinkEnvelope> => {
+  return customFetch<ShareLinkEnvelope>(getCreateReportShareUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateReportShareMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReportShare>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReportShare>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["createReportShare"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReportShare>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createReportShare(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReportShareMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReportShare>>
+>;
+
+export type CreateReportShareMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Share a report with the farmer via a public read-only link
+ */
+export const useCreateReportShare = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReportShare>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createReportShare>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getCreateReportShareMutationOptions(options));
+};
+
+/**
+ * @summary Stop sharing a report (its links stop working immediately)
+ */
+export const getRevokeReportShareUrl = (id: string) => {
+  return `/api/reports/${id}/share`;
+};
+
+export const revokeReportShare = async (
+  id: string,
+  options?: RequestInit,
+): Promise<LogoutSuccess> => {
+  return customFetch<LogoutSuccess>(getRevokeReportShareUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getRevokeReportShareMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeReportShare>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revokeReportShare>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["revokeReportShare"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revokeReportShare>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return revokeReportShare(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevokeReportShareMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeReportShare>>
+>;
+
+export type RevokeReportShareMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Stop sharing a report (its links stop working immediately)
+ */
+export const useRevokeReportShare = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revokeReportShare>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revokeReportShare>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getRevokeReportShareMutationOptions(options));
+};
+
+/**
+ * @summary Read a shared report by its public token (no account needed)
+ */
+export const getGetSharedReportUrl = (token: string) => {
+  return `/api/shared/${token}`;
+};
+
+export const getSharedReport = async (
+  token: string,
+  options?: RequestInit,
+): Promise<SharedReportEnvelope> => {
+  return customFetch<SharedReportEnvelope>(getGetSharedReportUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSharedReportQueryKey = (token: string) => {
+  return [`/api/shared/${token}`] as const;
+};
+
+export const getGetSharedReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSharedReport>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSharedReportQueryKey(token);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedReport>>> = ({
+    signal,
+  }) => getSharedReport(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSharedReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSharedReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSharedReport>>
+>;
+export type GetSharedReportQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Read a shared report by its public token (no account needed)
+ */
+
+export function useGetSharedReport<
+  TData = Awaited<ReturnType<typeof getSharedReport>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSharedReportQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get all reports (admin only)

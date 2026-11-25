@@ -5,6 +5,95 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * A consultant's business details, printed in the header of their reports and on shared report pages. Every field may be null.
+ */
+export interface BusinessProfile {
+  /**
+   * @maxLength 120
+   * @nullable
+   */
+  businessName: string | null;
+  /**
+   * Also used to prefill the assessor name on new tests.
+   * @maxLength 120
+   * @nullable
+   */
+  contactName: string | null;
+  /**
+   * @maxLength 40
+   * @nullable
+   */
+  phone: string | null;
+  /**
+   * @maxLength 160
+   * @nullable
+   */
+  email: string | null;
+  /**
+   * @maxLength 200
+   * @nullable
+   */
+  website: string | null;
+  /**
+   * Small PNG/JPEG/WebP as a `data:image/...;base64,` URL (max ~200 KB).
+   * @nullable
+   */
+  logo: string | null;
+}
+
+export interface BusinessProfileEnvelope {
+  profile: BusinessProfile;
+}
+
+export interface ShareLink {
+  token: string;
+  /** Absolute public URL of the shared report page. */
+  url: string;
+  createdAt: string;
+}
+
+export interface ShareLinkEnvelope {
+  share: ShareLink | null;
+}
+
+export type ReportRecordReportData = { [key: string]: unknown };
+
+export interface ReportRecord {
+  id: string;
+  /** @nullable */
+  userId?: string | null;
+  /** @nullable */
+  irrigatorType?: string | null;
+  /** @nullable */
+  farmName?: string | null;
+  /** @nullable */
+  assessorName?: string | null;
+  /** @nullable */
+  testDate?: string | null;
+  /** @nullable */
+  duPercent?: string | null;
+  /** @nullable */
+  duStatus?: string | null;
+  /** @nullable */
+  farmId?: string | null;
+  /** @nullable */
+  irrigatorId?: string | null;
+  reportData: ReportRecordReportData;
+  createdAt: string;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  clientUpdatedAt?: string | null;
+  /** @nullable */
+  deletedAt?: string | null;
+}
+
+export interface SharedReportEnvelope {
+  report: ReportRecord;
+  branding: BusinessProfile | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -93,38 +182,6 @@ export interface SaveReportRequest {
   /** @nullable */
   irrigatorId?: string | null;
   reportData: SaveReportRequestReportData;
-}
-
-export type ReportRecordReportData = { [key: string]: unknown };
-
-export interface ReportRecord {
-  id: string;
-  /** @nullable */
-  userId?: string | null;
-  /** @nullable */
-  irrigatorType?: string | null;
-  /** @nullable */
-  farmName?: string | null;
-  /** @nullable */
-  assessorName?: string | null;
-  /** @nullable */
-  testDate?: string | null;
-  /** @nullable */
-  duPercent?: string | null;
-  /** @nullable */
-  duStatus?: string | null;
-  /** @nullable */
-  farmId?: string | null;
-  /** @nullable */
-  irrigatorId?: string | null;
-  reportData: ReportRecordReportData;
-  createdAt: string;
-  /** @nullable */
-  updatedAt?: string | null;
-  /** @nullable */
-  clientUpdatedAt?: string | null;
-  /** @nullable */
-  deletedAt?: string | null;
 }
 
 export interface ReportEnvelope {

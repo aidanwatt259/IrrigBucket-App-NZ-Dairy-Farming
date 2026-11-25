@@ -360,7 +360,7 @@ async function fetchAuthoritativeReport(id: string) {
   return data;
 }
 
-function toReportResponse(r: {
+export function toReportResponse(r: {
   id: string;
   user_id: string | null;
   irrigator_type: string | null;

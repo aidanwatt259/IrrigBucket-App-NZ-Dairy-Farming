@@ -45,6 +45,8 @@ export type Database = {
           updated_at: string;
           client_updated_at: string | null;
           deleted_at: string | null;
+          // Added by supabase-shares.sql; optional so older projects still type-check.
+          shared_with_farmer?: boolean;
         };
         Insert: Omit<
           Database["public"]["Tables"]["reports"]["Row"],
@@ -55,6 +57,7 @@ export type Database = {
           | "updated_at"
           | "client_updated_at"
           | "deleted_at"
+          | "shared_with_farmer"
         > & {
           id?: string;
           farm_id?: string | null;
@@ -127,6 +130,24 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["irrigators"]["Row"]>;
+        Relationships: [];
+      };
+      report_shares: {
+        Row: {
+          token: string;
+          report_id: string;
+          created_by: string;
+          created_at: string;
+          revoked_at: string | null;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["report_shares"]["Row"],
+          "created_at" | "revoked_at"
+        > & {
+          created_at?: string;
+          revoked_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["report_shares"]["Row"]>;
         Relationships: [];
       };
       help_requests: {

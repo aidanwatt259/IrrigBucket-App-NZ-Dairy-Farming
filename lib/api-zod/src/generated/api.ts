@@ -361,6 +361,299 @@ export const SaveIrrigatorBody = zod.object({
 });
 
 /**
+ * @summary The signed-in user's business details printed on their reports
+ */
+export const GetBusinessProfileHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const getBusinessProfileResponseProfileBusinessNameMax = 120;
+
+export const getBusinessProfileResponseProfileContactNameMax = 120;
+
+export const getBusinessProfileResponseProfilePhoneMax = 40;
+
+export const getBusinessProfileResponseProfileEmailMax = 160;
+
+export const getBusinessProfileResponseProfileWebsiteMax = 200;
+
+export const GetBusinessProfileResponse = zod.object({
+  profile: zod
+    .object({
+      businessName: zod
+        .string()
+        .max(getBusinessProfileResponseProfileBusinessNameMax)
+        .nullable(),
+      contactName: zod
+        .string()
+        .max(getBusinessProfileResponseProfileContactNameMax)
+        .nullable()
+        .describe("Also used to prefill the assessor name on new tests."),
+      phone: zod
+        .string()
+        .max(getBusinessProfileResponseProfilePhoneMax)
+        .nullable(),
+      email: zod
+        .string()
+        .max(getBusinessProfileResponseProfileEmailMax)
+        .nullable(),
+      website: zod
+        .string()
+        .max(getBusinessProfileResponseProfileWebsiteMax)
+        .nullable(),
+      logo: zod
+        .string()
+        .nullable()
+        .describe(
+          "Small PNG\/JPEG\/WebP as a `data:image\/...;base64,` URL (max ~200 KB).",
+        ),
+    })
+    .describe(
+      "A consultant's business details, printed in the header of their reports and on shared report pages. Every field may be null.",
+    ),
+});
+
+/**
+ * @summary Replace the signed-in user's business profile
+ */
+export const SetBusinessProfileHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const setBusinessProfileBodyBusinessNameMax = 120;
+
+export const setBusinessProfileBodyContactNameMax = 120;
+
+export const setBusinessProfileBodyPhoneMax = 40;
+
+export const setBusinessProfileBodyEmailMax = 160;
+
+export const setBusinessProfileBodyWebsiteMax = 200;
+
+export const SetBusinessProfileBody = zod
+  .object({
+    businessName: zod
+      .string()
+      .max(setBusinessProfileBodyBusinessNameMax)
+      .nullable(),
+    contactName: zod
+      .string()
+      .max(setBusinessProfileBodyContactNameMax)
+      .nullable()
+      .describe("Also used to prefill the assessor name on new tests."),
+    phone: zod.string().max(setBusinessProfileBodyPhoneMax).nullable(),
+    email: zod.string().max(setBusinessProfileBodyEmailMax).nullable(),
+    website: zod.string().max(setBusinessProfileBodyWebsiteMax).nullable(),
+    logo: zod
+      .string()
+      .nullable()
+      .describe(
+        "Small PNG\/JPEG\/WebP as a `data:image\/...;base64,` URL (max ~200 KB).",
+      ),
+  })
+  .describe(
+    "A consultant's business details, printed in the header of their reports and on shared report pages. Every field may be null.",
+  );
+
+export const setBusinessProfileResponseProfileBusinessNameMax = 120;
+
+export const setBusinessProfileResponseProfileContactNameMax = 120;
+
+export const setBusinessProfileResponseProfilePhoneMax = 40;
+
+export const setBusinessProfileResponseProfileEmailMax = 160;
+
+export const setBusinessProfileResponseProfileWebsiteMax = 200;
+
+export const SetBusinessProfileResponse = zod.object({
+  profile: zod
+    .object({
+      businessName: zod
+        .string()
+        .max(setBusinessProfileResponseProfileBusinessNameMax)
+        .nullable(),
+      contactName: zod
+        .string()
+        .max(setBusinessProfileResponseProfileContactNameMax)
+        .nullable()
+        .describe("Also used to prefill the assessor name on new tests."),
+      phone: zod
+        .string()
+        .max(setBusinessProfileResponseProfilePhoneMax)
+        .nullable(),
+      email: zod
+        .string()
+        .max(setBusinessProfileResponseProfileEmailMax)
+        .nullable(),
+      website: zod
+        .string()
+        .max(setBusinessProfileResponseProfileWebsiteMax)
+        .nullable(),
+      logo: zod
+        .string()
+        .nullable()
+        .describe(
+          "Small PNG\/JPEG\/WebP as a `data:image\/...;base64,` URL (max ~200 KB).",
+        ),
+    })
+    .describe(
+      "A consultant's business details, printed in the header of their reports and on shared report pages. Every field may be null.",
+    ),
+});
+
+/**
+ * @summary The live share link for one of my reports, if any
+ */
+export const GetReportShareParams = zod.object({
+  id: zod.coerce.string().describe("The report's UUID."),
+});
+
+export const GetReportShareHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetReportShareResponse = zod.object({
+  share: zod.union([
+    zod.object({
+      token: zod.string(),
+      url: zod
+        .string()
+        .describe("Absolute public URL of the shared report page."),
+      createdAt: zod.string(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * Creates a share link for the report, or returns the existing live one. Anyone with the link can view and print the report without an account.
+ * @summary Share a report with the farmer via a public read-only link
+ */
+export const CreateReportShareParams = zod.object({
+  id: zod.coerce.string().describe("The report's UUID."),
+});
+
+export const CreateReportShareHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const CreateReportShareResponse = zod.object({
+  share: zod.union([
+    zod.object({
+      token: zod.string(),
+      url: zod
+        .string()
+        .describe("Absolute public URL of the shared report page."),
+      createdAt: zod.string(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
+ * @summary Stop sharing a report (its links stop working immediately)
+ */
+export const RevokeReportShareParams = zod.object({
+  id: zod.coerce.string().describe("The report's UUID."),
+});
+
+export const RevokeReportShareHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const RevokeReportShareResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Read a shared report by its public token (no account needed)
+ */
+export const GetSharedReportParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const getSharedReportResponseBrandingOneBusinessNameMax = 120;
+
+export const getSharedReportResponseBrandingOneContactNameMax = 120;
+
+export const getSharedReportResponseBrandingOnePhoneMax = 40;
+
+export const getSharedReportResponseBrandingOneEmailMax = 160;
+
+export const getSharedReportResponseBrandingOneWebsiteMax = 200;
+
+export const GetSharedReportResponse = zod.object({
+  report: zod.object({
+    id: zod.string(),
+    userId: zod.string().nullish(),
+    irrigatorType: zod.string().nullish(),
+    farmName: zod.string().nullish(),
+    assessorName: zod.string().nullish(),
+    testDate: zod.string().nullish(),
+    duPercent: zod.string().nullish(),
+    duStatus: zod.string().nullish(),
+    farmId: zod.string().nullish(),
+    irrigatorId: zod.string().nullish(),
+    reportData: zod.record(zod.string(), zod.unknown()),
+    createdAt: zod.string(),
+    updatedAt: zod.string().nullish(),
+    clientUpdatedAt: zod.string().nullish(),
+    deletedAt: zod.string().nullish(),
+  }),
+  branding: zod.union([
+    zod
+      .object({
+        businessName: zod
+          .string()
+          .max(getSharedReportResponseBrandingOneBusinessNameMax)
+          .nullable(),
+        contactName: zod
+          .string()
+          .max(getSharedReportResponseBrandingOneContactNameMax)
+          .nullable()
+          .describe("Also used to prefill the assessor name on new tests."),
+        phone: zod
+          .string()
+          .max(getSharedReportResponseBrandingOnePhoneMax)
+          .nullable(),
+        email: zod
+          .string()
+          .max(getSharedReportResponseBrandingOneEmailMax)
+          .nullable(),
+        website: zod
+          .string()
+          .max(getSharedReportResponseBrandingOneWebsiteMax)
+          .nullable(),
+        logo: zod
+          .string()
+          .nullable()
+          .describe(
+            "Small PNG\/JPEG\/WebP as a `data:image\/...;base64,` URL (max ~200 KB).",
+          ),
+      })
+      .describe(
+        "A consultant's business details, printed in the header of their reports and on shared report pages. Every field may be null.",
+      ),
+    zod.null(),
+  ]),
+});
+
+/**
  * @summary Get all reports (admin only)
  */
 export const AdminGetAllReportsHeader = zod.object({

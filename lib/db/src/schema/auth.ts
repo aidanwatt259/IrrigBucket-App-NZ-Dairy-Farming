@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const sessionsTable = pgTable(
@@ -21,6 +21,14 @@ export const usersTable = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   // "farmer" | "consultant" (see AccountType in the API spec).
   accountType: varchar("account_type").notNull().default("farmer"),
+  // Consultant business profile, printed on their reports and share pages.
+  businessName: varchar("business_name"),
+  businessContactName: varchar("business_contact_name"),
+  businessPhone: varchar("business_phone"),
+  businessEmail: varchar("business_email"),
+  businessWebsite: varchar("business_website"),
+  // Small data: URL (PNG/JPEG/WebP), size-capped by the API.
+  businessLogo: text("business_logo"),
   stripeCustomerId: varchar("stripe_customer_id"),
   stripeSubscriptionId: varchar("stripe_subscription_id"),
   subscriptionStatus: varchar("subscription_status"),

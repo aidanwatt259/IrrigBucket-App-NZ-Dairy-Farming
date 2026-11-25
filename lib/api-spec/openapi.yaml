@@ -16,6 +16,8 @@ tags:
     description: Irrigation test report storage and retrieval.
   - name: Farms
     description: Farms and their saved irrigators.
+  - name: Account
+    description: The signed-in user's profile settings.
   - name: Admin
     description: Admin-only endpoints.
   - name: HelpRequests
@@ -362,6 +364,174 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /account/business-profile:
+    get:
+      tags: [Account]
+      operationId: getBusinessProfile
+      summary: The signed-in user's business details printed on their reports
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: The business profile (fields are null until filled in).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessProfileEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [Account]
+      operationId: setBusinessProfile
+      summary: Replace the signed-in user's business profile
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessProfile'
+      responses:
+        '200':
+          description: The saved business profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessProfileEnvelope'
+        '400':
+          description: Invalid profile (e.g. logo too large or not an image).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /reports/{id}/share:
+    get:
+      tags: [Reports]
+      operationId: getReportShare
+      summary: The live share link for one of my reports, if any
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: The current share link, or null when the report is not shared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareLinkEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Report not found (or not synced to the server yet).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [Reports]
+      operationId: createReportShare
+      summary: Share a report with the farmer via a public read-only link
+      description: >-
+        Creates a share link for the report, or returns the existing live one.
+        Anyone with the link can view and print the report without an account.
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: The report's share link.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareLinkEnvelope'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Report not found (or not synced to the server yet).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Sharing is not set up on the server yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [Reports]
+      operationId: revokeReportShare
+      summary: Stop sharing a report (its links stop working immediately)
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+        - $ref: '#/components/parameters/ReportId'
+      responses:
+        '200':
+          description: Sharing revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Report not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /shared/{token}:
+    get:
+      tags: [Reports]
+      operationId: getSharedReport
+      summary: Read a shared report by its public token (no account needed)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The shared report and the consultant's branding.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedReportEnvelope'
+        '404':
+          description: No live share with that token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /admin/reports:
     get:
       tags: [Admin]
@@ -572,7 +742,75 @@ components:
       description: Browser session cookie.
       schema:
         type: string
+    ReportId:
+      name: id
+      in: path
+      required: true
+      description: The report's UUID.
+      schema:
+        type: string
   schemas:
+    BusinessProfile:
+      type: object
+      description: >-
+        A consultant's business details, printed in the header of their reports
+        and on shared report pages. Every field may be null.
+      required: [businessName, contactName, phone, email, website, logo]
+      properties:
+        businessName:
+          type: [string, 'null']
+          maxLength: 120
+        contactName:
+          type: [string, 'null']
+          maxLength: 120
+          description: Also used to prefill the assessor name on new tests.
+        phone:
+          type: [string, 'null']
+          maxLength: 40
+        email:
+          type: [string, 'null']
+          maxLength: 160
+        website:
+          type: [string, 'null']
+          maxLength: 200
+        logo:
+          type: [string, 'null']
+          description: Small PNG/JPEG/WebP as a `data:image/...;base64,` URL (max ~200 KB).
+    BusinessProfileEnvelope:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          $ref: '#/components/schemas/BusinessProfile'
+    ShareLink:
+      type: object
+      required: [token, url, createdAt]
+      properties:
+        token:
+          type: string
+        url:
+          type: string
+          description: Absolute public URL of the shared report page.
+        createdAt:
+          type: string
+    ShareLinkEnvelope:
+      type: object
+      required: [share]
+      properties:
+        share:
+          oneOf:
+            - $ref: '#/components/schemas/ShareLink'
+            - type: 'null'
+    SharedReportEnvelope:
+      type: object
+      required: [report, branding]
+      properties:
+        report:
+          $ref: '#/components/schemas/ReportRecord'
+        branding:
+          oneOf:
+            - $ref: '#/components/schemas/BusinessProfile'
+            - type: 'null'
     HealthStatus:
       type: object
       properties:
