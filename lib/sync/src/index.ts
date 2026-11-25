@@ -75,3 +75,16 @@ export {
   summarizeFarm,
   todayString,
 } from "./farmStatus.js";
+
+export type { ReportBranding, ReportCsvRow } from "./reportExport.js";
+
+export {
+  EMPTY_BRANDING,
+  REPORT_CSV_COLUMNS,
+  brandingContactLine,
+  buildReportsCsv,
+  csvCell,
+  describeDuStatus,
+  hasBranding,
+  reportsCsvFilename,
+} from "./reportExport.js";
